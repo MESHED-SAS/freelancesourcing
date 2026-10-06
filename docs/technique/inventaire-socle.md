@@ -2,7 +2,7 @@
 objet: Inventaire du socle technique (souches infrastructure et applicatives)
 date_creation: 2026-09-24
 derniere_mise_a_jour: 2026-10-06
-statut: v0. Composants pressentis et simulations ; les versions seront figées au premier commit
+statut: v0. Socle TypeScript validé (Node.js, TypeScript, npm, Vitest) ; autres composants pressentis ou simulés
 regle: tout ajout, toute suppression ou toute montée de version d'un composant met à jour cet inventaire, dans le même commit (règle inscrite dans CLAUDE.md)
 ---
 
@@ -62,10 +62,10 @@ Note (06/10/2026) : IONOS (société allemande, centres de données UE, UK et US
 
 | Composant | Rôle | Statut | Licence | Éditeur (pays) | Remarque |
 |---|---|---|---|---|---|
-| Node.js | Moteur d'exécution JavaScript côté serveur | 🎯 Pressenti | MIT | OpenJS Foundation | Choisir une version à support long (LTS) et noter sa date de fin de support |
-| TypeScript | Langage (JavaScript typé) | 🎯 Pressenti | Apache 2.0 | Microsoft (open source) | Le typage rend les contrats P1 à P11 explicites |
+| Node.js | Moteur d'exécution JavaScript côté serveur | ✅ Validé le 06/10/2026 : **24.21.0** (ligne 24 LTS ; `.nvmrc` : `24.21.0`, `engines.node` : `>=24 <25`) | MIT | OpenJS Foundation | Fin de support : 30/04/2028 (fin de la LTS de Node.js 24). Prochaine revue : 06/11/2026 |
+| TypeScript | Langage (JavaScript typé) | ✅ Validé le 06/10/2026 : **7.0.2** (version exacte figée) | Apache 2.0 | Microsoft (open source) | Le typage rend les contrats P1 à P11 explicites. Mode strict (`tsconfig.json`). Version 7 : compilateur natif réécrit en Go ; compatibilité avec Next.js à vérifier à l'incrément 4 (repli possible : 6.0.3). Fin de support : politique de support non vérifiée à ce jour. Prochaine revue : 06/11/2026 |
 | Next.js | Framework web (pages et serveur) | 🎯 Pressenti | MIT | Vercel (États-Unis), open source | Utilisable sans l'hébergement Vercel |
-| Code du projet | Application | **Dépôt créé le 06/10/2026** (`MESHED-SAS/freelancesourcing`, LICENSE, README et dossier `docs/` en place ; structure applicative à venir avec l'US-00) | **AGPL-3.0** | Projet | Décision prise |
+| Code du projet | Application | **Dépôt créé le 06/10/2026** (`MESHED-SAS/freelancesourcing`, LICENSE, README et dossier `docs/` en place ; dossiers `src/domain/`, `src/use-cases/` et `src/adapters/` créés le 06/10/2026, US-00 incrément 1) | **AGPL-3.0** | Projet | Décision prise |
 
 ### 2.4 Services externes
 
@@ -88,8 +88,11 @@ Note (06/10/2026) : IONOS (société allemande, centres de données UE, UK et US
 | Git et **GitHub** (dépôt public principal) | Gestion du code source, revue par pull request, publication AGPL, intégration Claude Code (GitHub Actions) | ✅ Validé le 24/09/2026 ; dépôt principal `MESHED-SAS/freelancesourcing` créé le 06/10/2026 | Git : GPL-2.0 ; GitHub : service (Microsoft, États-Unis) | Choisi pour la visibilité auprès des bénévoles et l'intégration officielle avec Claude Code. La branche `main` est protégée : toute modification passe par une pull request. Mode de fusion (merge, squash ou rebase) à décider pour les PR de Claude Code |
 | Intégration continue (par exemple GitHub Actions) | Tests automatiques, génération de la SBOM, analyse de sécurité des dépendances | 🎯 Pressenti | Service | Chaque livraison doit produire sa SBOM. **Utiliser des étapes standard** (tests, SBOM, contrôle des dépendances), faciles à réécrire sur Forgejo ou Woodpecker (Codeberg) en cas de déménagement. Fixer une version explicite du runner (`ubuntu-24.04`) pour l'intégration continue ; `ubuntu-latest` passe à Ubuntu 26 à partir du 19/10/2026. Le workflow du miroir GitLab est figé sur `ubuntu-24.04` depuis le 06/10/2026 et n'est donc pas concerné par ce changement |
 | Action `actions/checkout` (workflows de miroir GitHub Actions) | Récupérer le dépôt dans GitHub Actions | ✅ Validé le 26/09/2026 : **v7.0.1, figée sur l'empreinte** `3d3c42e5aac5ba805825da76410c181273ba90b1` (Node.js 24). Historique : v4.4.0 (`11d5960a…`), retirée le 26/09/2026 car elle ciblait Node.js 20, obsolète. Utilisée à l'identique dans le workflow du miroir GitLab des deux dépôts | MIT (GitHub) | Relever l'empreinte depuis la page *Releases* ou par `git ls-remote --tags`. Prochaine revue : à la sortie d'une v7.x corrective ou d'une nouvelle version majeure |
-| Outils de test (tests unitaires et tests de parcours dans un navigateur) | Vérifier les règles de gestion et les parcours | 🎯 Pressenti (outils à choisir au premier commit) | Libres | Les exemples « Alpha Conseil » servent de cas de test |
+| npm | Gestionnaire de paquets ; fichier de verrouillage `package-lock.json` versionné | ✅ Validé le 06/10/2026 : **11.19.0** (fourni avec Node.js 24.21.0) | Artistic-2.0 | Installation uniquement depuis le registre npm officiel, versions exactes (`--save-exact`). Fin de support : livré avec Node.js ; pas de calendrier de support propre publié à ce jour. Prochaine revue : 06/11/2026 |
+| Vitest | Tests unitaires ; `npm test` lance la vérification des types (`tsc --noEmit`) puis Vitest | ✅ Validé le 06/10/2026 : **5.0.3** (version exacte figée). Dépendance associée : Vite 8.3.3 (MIT), installée comme dépendance *peer* | MIT | Les exemples « Alpha Conseil » servent de cas de test. Fin de support : correctifs tant que 5.0 est la version mineure courante ; politique officielle : la version mineure courante reçoit les correctifs réguliers, la dernière mineure de la version majeure précédente les correctifs importants et de sécurité (source : https://vitest.dev/releases). Prochaine revue : 06/11/2026 |
+| Tests de parcours dans un navigateur (Playwright) | Vérifier les parcours | 🎯 Pressenti (reporté à la première US avec interface) | Apache 2.0 | — |
 | Analyse des dépendances vulnérables | Alerte en cas de faille connue | 🎯 Pressenti | — | Relié à la SBOM |
+| lightningcss 1.33.0 et son binaire natif (`lightningcss-<plateforme>`, par exemple `lightningcss-linux-x64-gnu`) | Dépendances de Vite, installées avec Vitest | ✅ Validé le 06/10/2026 (dépendance transitive) | MPL-2.0 | Outil de développement, non distribué avec l'application. Compatible avec l'AGPL-3.0 (MPL-2.0 §3.3) |
 | Claude Code | Développement assisté | 🎯 Pressenti | Service (Anthropic, États-Unis) | Aucune donnée réelle d'utilisateur ne doit lui être transmise ; il ne travaille que sur le code et des données fictives. Usage déclaré publiquement dans le README (section « Transparence sur la fabrication du code »). Travaille sur des branches ; chaque changement passe par une pull request relue par le porteur de projet |
 
 
