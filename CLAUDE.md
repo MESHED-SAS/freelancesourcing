@@ -18,9 +18,21 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 
 ## 2. Architecture : ports et adaptateurs (obligatoire)
 
-- Le **code métier** (dossier `domain/`) ne dépend d'**aucun** framework ni service externe.
+- Le **code métier** (dossier `src/domain/`) ne dépend d'**aucun** framework ni service externe.
 - **Tout accès à l'extérieur passe par un contrat (port)** défini dans le domaine, avec au moins deux adaptateurs : un **simulé** (mock) et, plus tard, un **réel**.
 - Le choix de l'adaptateur se fait **par configuration** (variables d'environnement), jamais en modifiant le code.
+
+**Organisation du code**
+
+| Dossier | Contenu | Peut dépendre de |
+|---|---|---|
+| `src/domain/` | Règles métier et contrats P1 à P11 | Rien d'autre que lui-même |
+| `src/use-cases/` | Cas d'usage : orchestration des règles et des contrats (par exemple « postuler à une mission ») | `src/domain/` uniquement |
+| `src/adapters/` | Adaptateurs simulés, puis réels, qui implémentent les contrats ; choix par variables d'environnement | `src/domain/` et la bibliothèque du service concerné |
+| `src/app/` | Interface web. **Réservé** : créé seulement si Next.js est retenu | `src/use-cases/` uniquement |
+
+- **`src/use-cases/` dépend uniquement de `src/domain/`.**
+- **L'interface n'appelle que les cas d'usage** (`src/use-cases/`), jamais directement le domaine ni les adaptateurs.
 
 | Contrat | Rôle | Adaptateur actuel |
 |---|---|---|
@@ -36,7 +48,7 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 | P10 `AuditLog` | Journal des actions sensibles | En mémoire |
 | P11 `CvParser` | Analyse de CV par IA (Should) | Réponse fixe |
 
-**Interdit :** appeler `Date.now()` ou `new Date()` en dehors de l'adaptateur de P1 ; importer un SDK externe dans `domain/`.
+**Interdit :** appeler `Date.now()` ou `new Date()` en dehors de l'adaptateur de P1 ; importer un SDK externe dans `src/domain/` ou `src/use-cases/`.
 
 **Cible pressentie** (non encore branchée) : Supabase et PostgreSQL (avec Row Level Security), Next.js, hébergeur français, service d'emails européen. Voir `docs/technique/architecture-cible-et-mocks.md`.
 
@@ -75,7 +87,7 @@ Un récit utilisateur est **terminé** seulement si :
 - **Claude Code ne fusionne jamais une pull request.** Le porteur de projet relit le diff, puis fusionne lui-même. Le mode de fusion (merge, squash ou rebase) est son choix.
 - Si une règle de gestion est ambiguë ou manque : **poser la question**, ne pas inventer. Signaler toute contradiction avec les documents de référence (`docs/` et `../meshed-docs/`).
 - Langue : **documentation et interface en français**. Code (noms de variables et de fonctions) en anglais, avec le glossaire de la section 9.
-- Messages de commit clairs, en français, qui citent le récit concerné (par exemple `US-05 : ...`). Conserver l'attribution automatique de Claude Code dans les commits : elle fait partie de la transparence du projet.
+- Messages de commit clairs, en français, qui citent le récit concerné (par exemple `US-05 : ...`). Conserver l'attribution automatique de Claude Code dans les commits (ligne `Co-Authored-By`) : elle fait partie de la transparence du projet. En cas de fusion en squash, cette ligne doit être conservée dans le message de fusion.
 
 ## 8. Git, GitHub et miroir
 
@@ -93,6 +105,12 @@ Le dépôt de référence est `MESHED-SAS/freelancesourcing` sur GitHub. Il est 
 - `git push --force`, `git push --mirror`, `git push --delete` sur `main` ou sur une étiquette, et toute réécriture de l'historique déjà publié.
 - Modifier ou supprimer `.github/workflows/mirror-gitlab.yml`, les règles de protection de `main` ou les secrets du dépôt.
 - Lire, afficher, écrire ou committer un jeton, une clé SSH ou toute valeur de secret.
+
+**Réseau**
+
+- Claude Code n'exécute **aucune commande git qui contacte un dépôt distant** (`git pull`, `git fetch`, `git push`, `git clone`, `git ls-remote`). Le porteur de projet synchronise lui-même depuis son terminal ; Claude Code travaille sur l'état local et fournit la commande de push à lancer.
+- Pour les preuves `git ls-remote --tags` exigées pour les GitHub Actions, Claude Code donne la commande exacte ; le porteur de projet l'exécute et colle la sortie.
+- L'installation de dépendances (`npm install`, `npm ci`) est autorisée **uniquement depuis le registre npm officiel**, après approbation de la commande par le porteur de projet. Chaque ajout de dépendance met à jour `docs/technique/inventaire-socle.md` dans le même commit, et le fichier de verrouillage est relu dans le diff.
 
 **GitHub Actions** (intégration continue et workflows)
 

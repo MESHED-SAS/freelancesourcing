@@ -39,6 +39,26 @@ Ce modèle s'appelle **« ports et adaptateurs »**, ou architecture hexagonale.
 
 **Le point de vigilance :** un mock ne reproduit jamais parfaitement le vrai service. Chaque bascule doit donc passer par des **tests de contrat** : les mêmes tests sont exécutés sur le mock et sur le composant réel, et ils doivent donner les mêmes résultats.
 
+### 2.1 Organisation du code
+
+Le code est rangé en quatre couches, chacune dans son dossier :
+
+| Dossier | Couche | Contenu | Peut dépendre de |
+|---|---|---|---|
+| `src/domain/` | Domaine | Règles métier (échéances en jours ouvrés, consentement, notation…) et contrats P1 à P11 | Rien d'autre que lui-même |
+| `src/use-cases/` | Cas d'usage | Orchestration des règles et des contrats pour une action de l'utilisateur, par exemple « postuler à une mission » : vérifier le consentement, enregistrer, journaliser | `src/domain/` uniquement |
+| `src/adapters/` | Adaptateurs | Implémentations simulées, puis réelles, des contrats ; le choix se fait par variables d'environnement | `src/domain/` et la bibliothèque du service concerné |
+| `src/app/` | Interface web | **Réservé** : ce dossier n'est créé que si Next.js est retenu | `src/use-cases/` uniquement |
+
+**Deux règles de dépendance :**
+
+1. **Les cas d'usage dépendent uniquement du domaine.** Ils manipulent les contrats, jamais un adaptateur précis.
+2. **L'interface n'appelle que les cas d'usage.** Elle n'appelle jamais directement le domaine ni un adaptateur ; les contrôles d'accès restent ainsi côté serveur, dans les cas d'usage.
+
+L'assemblage des adaptateurs selon la configuration (la « racine de composition » : lire les variables d'environnement, choisir le mock ou le réel pour chaque contrat, et les fournir aux cas d'usage) se fait en **un point d'entrée unique**. Son emplacement sera décidé à l'US-01.
+
+Pourquoi `use-cases` et non `application` : dans Next.js, le dossier `app/` désigne le routeur de l'interface web. Le nom `use-cases` évite de confondre les deux.
+
 ## 3. Les contrats et leurs simulations
 
 | # | Contrat (besoin métier) | Simulation au démarrage | Cible pressentie | Condition de bascule | Fonctions du MVP concernées |
@@ -64,6 +84,7 @@ Ce modèle s'appelle **« ports et adaptateurs »**, ou architecture hexagonale.
 3. Chaque contrat a une **suite de tests de contrat**, exécutée sur le mock aujourd'hui et sur le composant réel au moment de la bascule.
 4. Le choix de l'adaptateur (mock ou réel) se fait **par configuration**, jamais en modifiant le code.
 5. **Aucune donnée réelle dans les mocks** : personas et SIREN fictifs uniquement.
+6. **Respecter les règles de dépendance entre couches** (section 2.1). Leur respect sera vérifié par un test d'architecture, prévu avec l'US-01 ; ce test n'existe pas encore.
 
 ## 5. Ce qui reste à décider (composant par composant)
 
