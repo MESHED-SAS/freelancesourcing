@@ -3,7 +3,7 @@ objet: Inventaire du socle technique (souches infrastructure et applicatives)
 date_creation: 2026-09-24
 derniere_mise_a_jour: 2026-10-06
 statut: v0. Composants pressentis et simulations ; les versions seront figées au premier commit
-regle: toute ajout, suppression ou montée de version d'un composant met à jour cet inventaire, dans le même commit (règle inscrite dans CLAUDE.md)
+regle: tout ajout, toute suppression ou toute montée de version d'un composant met à jour cet inventaire, dans le même commit (règle inscrite dans CLAUDE.md)
 ---
 
 # Inventaire du socle technique
