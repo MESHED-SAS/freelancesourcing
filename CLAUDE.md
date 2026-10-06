@@ -59,7 +59,7 @@ Un récit utilisateur est **terminé** seulement si :
 ## 5. Dépendances et inventaire
 
 - **Avant d'ajouter une dépendance :** justifier le besoin, vérifier la licence (compatible AGPL), préférer une bibliothèque répandue et maintenue, et **demander validation**.
-- **Toute ajout, suppression ou montée de version** met à jour `docs/technique/inventaire-socle.md` **dans le même commit**.
+- **Tout ajout, toute suppression ou toute montée de version** met à jour `docs/technique/inventaire-socle.md` **dans le même commit**.
 - Figer les versions (fichier de verrouillage des dépendances versionné).
 
 ## 6. Sécurité
