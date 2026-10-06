@@ -1,7 +1,7 @@
 # CLAUDE.md : règles du projet pour Claude Code
 
 > Ce fichier est lu par Claude Code au début de chaque session. Il prime sur toute habitude par défaut.
-> Documentation de référence : dossier `docs/` (cadrage, règles de gestion, grille de notation, architecture, inventaire).
+> Documentation technique : dossier `docs/` (architecture, inventaire). Documents de cadrage et backlog : dossier privé `../meshed-docs/` (non publié, cloné à côté de ce dépôt). S'il est absent, le signaler et poser la question : ne rien inventer.
 
 ## 1. Le projet en bref
 
@@ -51,7 +51,7 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 Un récit utilisateur est **terminé** seulement si :
 
 1. **chaque critère d'acceptation** a au moins un test automatisé ;
-2. les **règles de gestion** sont testées avec l'**horloge simulée**. Les exemples « Alpha Conseil » de `docs/cadrage/regles-missions-candidatures.md` sont des cas de test obligatoires dès que la fonction concernée existe ;
+2. les **règles de gestion** sont testées avec l'**horloge simulée**. Les exemples « Alpha Conseil » de `../meshed-docs/cadrage/regles-missions-candidatures.md` sont des cas de test obligatoires dès que la fonction concernée existe ;
 3. **les règles de consentement ont des tests négatifs** : on vérifie qu'un recruteur **ne peut pas** voir ce qu'il ne doit pas voir ;
 4. l'ensemble des tests passe ;
 5. l'inventaire (`docs/technique/inventaire-socle.md`) est à jour si une dépendance a changé.
@@ -73,7 +73,7 @@ Un récit utilisateur est **terminé** seulement si :
 - **Un récit utilisateur à la fois**, en petits incréments. Proposer un plan court avant de coder, puis attendre la validation.
 - **Une branche et une pull request par incrément.** Claude Code ne travaille jamais directement sur `main` (voir la section 8).
 - **Claude Code ne fusionne jamais une pull request.** Le porteur de projet relit le diff, puis fusionne lui-même. Le mode de fusion (merge, squash ou rebase) est son choix.
-- Si une règle de gestion est ambiguë ou manque : **poser la question**, ne pas inventer. Signaler toute contradiction avec les documents de `docs/`.
+- Si une règle de gestion est ambiguë ou manque : **poser la question**, ne pas inventer. Signaler toute contradiction avec les documents de référence (`docs/` et `../meshed-docs/`).
 - Langue : **documentation et interface en français**. Code (noms de variables et de fonctions) en anglais, avec le glossaire de la section 9.
 - Messages de commit clairs, en français, qui citent le récit concerné (par exemple `US-05 : ...`). Conserver l'attribution automatique de Claude Code dans les commits : elle fait partie de la transparence du projet.
 
