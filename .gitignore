@@ -147,3 +147,7 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Fichiers parasites des systèmes d'exploitation
+Thumbs.db
+.DS_Store
