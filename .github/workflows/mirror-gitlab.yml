@@ -1,0 +1,25 @@
+name: Mirror to GitLab
+
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+  delete:
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (tout l'historique, toutes les branches)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Push vers GitLab (branches et étiquettes)
+        run: |
+          git remote add gitlab https://meshed-git:${{ secrets.GITLAB_TOKEN }}@gitlab.com/meshed-sas/freelancesourcing.git
+          git remote set-head origin -d || true
+          git push --prune gitlab '+refs/remotes/origin/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
