@@ -26,13 +26,15 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 
 | Dossier | Contenu | Peut dépendre de |
 |---|---|---|
-| `src/domain/` | Règles métier et contrats P1 à P11 | Rien d'autre que lui-même |
-| `src/use-cases/` | Cas d'usage : orchestration des règles et des contrats (par exemple « postuler à une mission ») | `src/domain/` uniquement |
-| `src/adapters/` | Adaptateurs simulés, puis réels, qui implémentent les contrats ; choix par variables d'environnement | `src/domain/` et la bibliothèque du service concerné |
-| `src/app/` | Interface web. **Réservé** : créé seulement si Next.js est retenu | `src/use-cases/` uniquement |
+| `src/domain/` | Règles métier et contrats P1 à P11 | Rien d'autre que lui-même ; aucun paquet externe |
+| `src/use-cases/` | Cas d'usage : orchestration des règles et des contrats (par exemple « postuler à une mission ») | `src/domain/` et lui-même ; aucun paquet externe |
+| `src/adapters/` | Adaptateurs simulés, puis réels, qui implémentent les contrats ; le choix entre eux se fait dans `src/composition/` | `src/domain/`, lui-même et la bibliothèque du service concerné |
+| `src/app/` | Interface web. **Réservé** : créé seulement si Next.js est retenu | `src/use-cases/`, `src/composition/` et lui-même ; paquets externes autorisés |
+| `src/composition/` | Racine de composition : assemble les adaptateurs selon la configuration et les fournit aux cas d'usage | `src/domain/`, `src/use-cases/`, `src/adapters/` et lui-même ; aucun paquet externe |
 
-- **`src/use-cases/` dépend uniquement de `src/domain/`.**
-- **L'interface n'appelle que les cas d'usage** (`src/use-cases/`), jamais directement le domaine ni les adaptateurs.
+- **`src/use-cases/` ne dépend que de `src/domain/` et de lui-même** : jamais d'un adaptateur ni d'un paquet externe.
+- **L'interface n'appelle que les cas d'usage** (`src/use-cases/`) et reçoit ses dépendances de `src/composition/` ; jamais directement le domaine ni les adaptateurs.
+- Règles détaillées et limites du contrôle : `docs/technique/architecture-cible-et-mocks.md`, §2.1. Contrôles automatiques : `tests/architecture/layer-dependencies.test.ts` (dépendances entre couches) et `tests/architecture/clock-usage.test.ts` (horloge).
 
 | Contrat | Rôle | Adaptateur actuel |
 |---|---|---|
@@ -48,7 +50,12 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 | P10 `AuditLog` | Journal des actions sensibles | En mémoire |
 | P11 `CvParser` | Analyse de CV par IA (Should) | Réponse fixe |
 
-**Interdit :** appeler `Date.now()` ou `new Date()` en dehors de l'adaptateur de P1 ; importer un SDK externe dans `src/domain/` ou `src/use-cases/`.
+**Interdit :**
+- `Date.now(` et `new Date` (avec ou sans parenthèses) dans tout `src/`, sauf `src/adapters/clock/system-clock.ts` (adaptateur système de P1) ;
+- les identifiants `Date`, `performance`, `process` et `Temporal` dans `src/domain/` et `src/use-cases/` (commentaires et chaînes exclus) ;
+- importer un SDK externe dans `src/domain/`, `src/use-cases/` ou `src/composition/`.
+
+Les deux premières interdictions sont contrôlées par `tests/architecture/clock-usage.test.ts`.
 
 **Cible pressentie** (non encore branchée) : Supabase et PostgreSQL (avec Row Level Security), Next.js, hébergeur français, service d'emails européen. Voir `docs/technique/architecture-cible-et-mocks.md`.
 

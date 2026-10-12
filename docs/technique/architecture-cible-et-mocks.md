@@ -41,21 +41,41 @@ Ce modèle s'appelle **« ports et adaptateurs »**, ou architecture hexagonale.
 
 ### 2.1 Organisation du code
 
-Le code est rangé en quatre couches, chacune dans son dossier :
+Le code est rangé en cinq couches, chacune dans son dossier :
 
 | Dossier | Couche | Contenu | Peut dépendre de |
 |---|---|---|---|
-| `src/domain/` | Domaine | Règles métier (échéances en jours ouvrés, consentement, notation…) et contrats P1 à P11 | Rien d'autre que lui-même |
-| `src/use-cases/` | Cas d'usage | Orchestration des règles et des contrats pour une action de l'utilisateur, par exemple « postuler à une mission » : vérifier le consentement, enregistrer, journaliser | `src/domain/` uniquement |
-| `src/adapters/` | Adaptateurs | Implémentations simulées, puis réelles, des contrats ; le choix se fait par variables d'environnement | `src/domain/` et la bibliothèque du service concerné |
-| `src/app/` | Interface web | **Réservé** : ce dossier n'est créé que si Next.js est retenu | `src/use-cases/` uniquement |
+| `src/domain/` | Domaine | Règles métier (échéances en jours ouvrés, consentement, notation…) et contrats P1 à P11 | Rien d'autre que lui-même ; aucun paquet externe |
+| `src/use-cases/` | Cas d'usage | Orchestration des règles et des contrats pour une action de l'utilisateur, par exemple « postuler à une mission » : vérifier le consentement, enregistrer, journaliser | `src/domain/` et lui-même ; aucun paquet externe |
+| `src/adapters/` | Adaptateurs | Implémentations simulées, puis réelles, des contrats ; le choix entre elles se fait dans `src/composition/` | `src/domain/`, lui-même et la bibliothèque du service concerné |
+| `src/app/` | Interface web | **Réservé** : ce dossier n'est créé que si Next.js est retenu | `src/use-cases/`, `src/composition/` et lui-même ; paquets externes autorisés |
+| `src/composition/` | Racine de composition | Assemble les adaptateurs selon la configuration et les fournit aux cas d'usage | `src/domain/`, `src/use-cases/`, `src/adapters/` et lui-même ; aucun paquet externe |
 
-**Deux règles de dépendance :**
+Les règles de dépendance entre couches sont détaillées dans le tableau « Règles de dépendance par couche » ci-dessous. Les cas d'usage manipulent les contrats, jamais un adaptateur précis ; l'interface n'appelle jamais directement le domaine ni un adaptateur, ce qui maintient les contrôles d'accès côté serveur, dans les cas d'usage.
 
-1. **Les cas d'usage dépendent uniquement du domaine.** Ils manipulent les contrats, jamais un adaptateur précis.
-2. **L'interface n'appelle que les cas d'usage.** Elle n'appelle jamais directement le domaine ni un adaptateur ; les contrôles d'accès restent ainsi côté serveur, dans les cas d'usage.
+L'assemblage des adaptateurs selon la configuration (la « racine de composition » : lire les variables d'environnement, choisir le mock ou le réel pour chaque contrat, et les fournir aux cas d'usage) se fait en **un point d'entrée unique**. Il est placé dans `src/composition/` (décision de l'US-01).
 
-L'assemblage des adaptateurs selon la configuration (la « racine de composition » : lire les variables d'environnement, choisir le mock ou le réel pour chaque contrat, et les fournir aux cas d'usage) se fait en **un point d'entrée unique**. Son emplacement sera décidé à l'US-01.
+**Règles de dépendance par couche**, contrôlées par `tests/architecture/layer-dependencies.test.ts` :
+
+| Couche | Peut importer | Paquets externes |
+|---|---|---|
+| `src/domain/` | `src/domain/` | non |
+| `src/use-cases/` | `src/domain/`, `src/use-cases/` | non |
+| `src/adapters/` | `src/domain/`, `src/adapters/` | oui |
+| `src/app/` | `src/use-cases/`, `src/app/`, `src/composition/` | oui |
+| `src/composition/` | `src/domain/`, `src/use-cases/`, `src/adapters/`, `src/composition/` | non |
+
+Tout fichier de `src/` appartient à l'une de ces cinq couches. `require(` est refusé dans tout `src/`, ainsi que tout `import()` dont l'argument n'est pas une chaîne littérale.
+
+Limites du contrôle :
+
+- lecture par motifs sur le texte, commentaires masqués, et non par arbre syntaxique : le test protège contre l'oubli, pas contre un contournement volontaire ;
+- seuls les fichiers `src/**/*.ts` sont lus : le motif de `tests/architecture/source-files.ts` doit être élargi (`.tsx`) avant de créer `src/app/` ;
+- les cycles d'imports ne sont pas contrôlés ;
+- `import type` compte comme un import : une dépendance de type est soumise aux mêmes règles ;
+- les spécificateurs commençant par `#` ou `/` sont traités comme des paquets externes.
+
+**Horloge :** `Date.now(` et `new Date` (avec ou sans parenthèses) sont interdits dans tout `src/`, sauf `src/adapters/clock/system-clock.ts` (adaptateur système de P1). Les identifiants `Date`, `performance`, `process` et `Temporal` sont interdits dans `src/domain/` et `src/use-cases/` (commentaires et chaînes exclus). Contrôle : `tests/architecture/clock-usage.test.ts`.
 
 Pourquoi `use-cases` et non `application` : dans Next.js, le dossier `app/` désigne le routeur de l'interface web. Le nom `use-cases` évite de confondre les deux.
 
@@ -84,7 +104,7 @@ Pourquoi `use-cases` et non `application` : dans Next.js, le dossier `app/` dés
 3. Chaque contrat a une **suite de tests de contrat**, exécutée sur le mock aujourd'hui et sur le composant réel au moment de la bascule.
 4. Le choix de l'adaptateur (mock ou réel) se fait **par configuration**, jamais en modifiant le code.
 5. **Aucune donnée réelle dans les mocks** : personas et SIREN fictifs uniquement.
-6. **Respecter les règles de dépendance entre couches** (section 2.1). Leur respect sera vérifié par un test d'architecture, prévu avec l'US-01 ; ce test n'existe pas encore.
+6. **Respecter les règles de dépendance entre couches** (section 2.1). Leur respect est vérifié par `tests/architecture/layer-dependencies.test.ts` (limites indiquées en section 2.1).
 
 ## 5. Ce qui reste à décider (composant par composant)
 
