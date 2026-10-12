@@ -128,3 +128,29 @@ describe("Day : affichage et numéro de jour", () => {
     }
   });
 });
+
+describe("Day : jour de la semaine (ISO 8601, lundi = 1 … dimanche = 7)", () => {
+  it.each([
+    [Day.of(1970, 1, 1), 4, "jeudi"],
+    [Day.of(2025, 10, 31), 5, "vendredi"],
+    [Day.of(2025, 11, 1), 6, "samedi"],
+    [Day.of(2025, 11, 2), 7, "dimanche"],
+    [Day.of(2025, 11, 3), 1, "lundi"],
+    [Day.of(2000, 2, 29), 2, "mardi"],
+    [Day.of(1969, 12, 31), 3, "mercredi"],
+    [Day.of(1, 1, 1), 1, "lundi"],
+    [Day.of(9999, 12, 31), 5, "vendredi"],
+  ])("%s est un %i (%s)", (day, dayOfWeek) => {
+    expect(day.dayOfWeek()).toBe(dayOfWeek);
+  });
+
+  it("est cohérent avec Date.UTC sur chaque jour de 1999 à 2101", () => {
+    let day = Day.of(1999, 1, 1);
+    while (day.year <= 2101) {
+      // getUTCDay donne dimanche = 0 ; ISO 8601 donne dimanche = 7.
+      const expected = new Date(Date.UTC(day.year, day.month - 1, day.day)).getUTCDay() || 7;
+      expect(day.dayOfWeek()).toBe(expected);
+      day = day.addDays(1);
+    }
+  });
+});
