@@ -29,8 +29,8 @@ export const sourceFiles: readonly SourceFile[] = Object.entries(rawSources)
 // commentaires // et /* */, chaînes "…" et '…', texte littéral des gabarits `…`.
 // Les expressions ${…} des gabarits sont analysées comme du code, y compris imbriquées.
 // Les numéros de ligne restent exacts et deux mots ne sont jamais collés.
-// Les chemins d'import sont des chaînes : ils sont donc masqués. La modification 2 (règles de
-// dépendance entre couches) aura besoin d'une fonction à part pour les lire.
+// Les chemins d'import sont des chaînes : ils sont donc masqués. Pour les lire, utiliser
+// maskComments.
 // Les expressions régulières /…/ sont recopiées telles quelles : un « // » qu'elles contiennent
 // n'ouvre pas de commentaire. En cas de doute entre division et expression régulière, on choisit
 // l'expression régulière : l'erreur possible est alors de garder du texte (refus de trop),
@@ -39,14 +39,25 @@ export function maskNonCode(code: string): string {
   return scanCode(code, 0, false).masked;
 }
 
+// Variante pour lire les chemins d'import : masque les commentaires mais garde le texte des
+// chaînes et des gabarits. Même analyse que maskNonCode, même longueur, mêmes positions :
+// un indice trouvé dans l'une vaut pour l'autre.
+export function maskComments(code: string): string {
+  return scanCode(code, 0, false).withStrings;
+}
+
 interface Scan {
+  // Seul le code reste visible (résultat de maskNonCode).
   readonly masked: string;
+  // Le code, les chaînes et les gabarits restent visibles (résultat de maskComments).
+  readonly withStrings: string;
   // Position où l'analyse s'est arrêtée : fin du texte, ou « } » fermant une expression ${…}.
   readonly end: number;
 }
 
 function scanCode(code: string, start: number, insideTemplate: boolean): Scan {
   let masked = "";
+  let withStrings = "";
   let depth = 0;
   let i = start;
   while (i < code.length) {
@@ -56,58 +67,74 @@ function scanCode(code: string, start: number, insideTemplate: boolean): Scan {
     if (char === "/" && next === "/") {
       const newline = code.indexOf("\n", i);
       end = newline === -1 ? code.length : newline;
-      masked += blank(code.slice(i, end));
+      const hidden = blank(code.slice(i, end));
+      masked += hidden;
+      withStrings += hidden;
     } else if (char === "/" && next === "*") {
       const close = code.indexOf("*/", i + 2);
       end = close === -1 ? code.length : close + 2;
-      masked += blank(code.slice(i, end));
+      const hidden = blank(code.slice(i, end));
+      masked += hidden;
+      withStrings += hidden;
     } else if (char === '"' || char === "'") {
       end = endOfString(code, i);
-      masked += blank(code.slice(i, end));
+      const text = code.slice(i, end);
+      masked += blank(text);
+      withStrings += text;
     } else if (char === "`") {
       const template = scanTemplate(code, i);
       end = template.end;
       masked += template.masked;
+      withStrings += template.withStrings;
     } else if (char === "/" && regexMayStartAfter(masked)) {
       end = endOfRegex(code, i);
-      masked += code.slice(i, end);
+      const text = code.slice(i, end);
+      masked += text;
+      withStrings += text;
     } else {
       if (char === "{") depth += 1;
       if (char === "}") {
-        if (insideTemplate && depth === 0) return { masked, end: i };
+        if (insideTemplate && depth === 0) return { masked, withStrings, end: i };
         depth -= 1;
       }
       masked += char;
+      withStrings += char;
     }
     i = end;
   }
-  return { masked, end: code.length };
+  return { masked, withStrings, end: code.length };
 }
 
 // Gabarit ouvert en `start` : le texte littéral est masqué, chaque ${…} est analysé comme du code.
 function scanTemplate(code: string, start: number): Scan {
   let masked = " ";
+  let withStrings = "`";
   let i = start + 1;
   while (i < code.length) {
     const char = code.charAt(i);
-    if (char === "`") return { masked: masked + " ", end: i + 1 };
+    if (char === "`") return { masked: masked + " ", withStrings: withStrings + "`", end: i + 1 };
     if (char === "\\") {
-      masked += blank(code.slice(i, i + 2));
+      const escape = code.slice(i, i + 2);
+      masked += blank(escape);
+      withStrings += escape;
       i += 2;
     } else if (char === "$" && code.charAt(i + 1) === "{") {
       const expression = scanCode(code, i + 2, true);
       masked += "  " + expression.masked;
+      withStrings += "${" + expression.withStrings;
       i = expression.end;
       if (i < code.length) {
         masked += " ";
+        withStrings += "}";
         i += 1;
       }
     } else {
       masked += blank(char);
+      withStrings += char;
       i += 1;
     }
   }
-  return { masked, end: code.length };
+  return { masked, withStrings, end: code.length };
 }
 
 function blank(text: string): string {
