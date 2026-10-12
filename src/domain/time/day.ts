@@ -6,6 +6,9 @@
 const MIN_YEAR = 1;
 const MAX_YEAR = 9999;
 
+// Jour de la semaine selon la norme ISO 8601 : lundi = 1 … dimanche = 7.
+export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
 function isLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
@@ -83,6 +86,11 @@ export class Day {
   // Numéro du jour : nombre de jours depuis le 1970-01-01 (négatif avant).
   toEpochDay(): number {
     return this.epochDay;
+  }
+
+  // Jour de la semaine (ISO 8601 : lundi = 1 … dimanche = 7). Le 1970-01-01 est un jeudi.
+  dayOfWeek(): DayOfWeek {
+    return (((((this.epochDay + 3) % 7) + 7) % 7) + 1) as DayOfWeek;
   }
 
   compare(other: Day): -1 | 0 | 1 {
