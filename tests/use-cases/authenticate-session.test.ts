@@ -1,6 +1,7 @@
 // Tests du cas d'usage authenticateSession (US-02, critères 3 et 4). Identifiants stables U1 à U15,
 // cités par les preuves par mutation. Le fournisseur est une fausse implémentation de
-// AuthProvider définie ici (le mock des personas viendra dans un prochain incrément).
+// AuthProvider définie ici, et non le mock des personas : elle fournit des utilisateurs à adresse
+// jetable, absents des personas, et enregistre chaque appel avec le jeton reçu.
 // Toutes les adresses utilisent des domaines réservés (exemple.test, alpha-conseil.example), sauf
 // yopmail.com et mailinator.com, qui sont les services jetables visés.
 import { describe, expect, it } from "vitest";
