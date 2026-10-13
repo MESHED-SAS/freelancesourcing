@@ -430,7 +430,7 @@ describe("Règles de dépendance sur les fichiers de src/", () => {
     );
   });
 
-  it("lit les onze exports de domain/index.ts, dont l'export multiligne (témoin positif)", () => {
+  it("lit les treize exports de domain/index.ts, dont l'export multiligne (témoin positif)", () => {
     // Couplé volontairement au contenu de src/domain/index.ts : après un ajout légitime dans ce fichier, adapter ce test.
     expect(resolvedImports("src/domain/index.ts")).toEqual([
       { line: 6, target: "src/domain/time/business-days.ts" },
@@ -439,11 +439,13 @@ describe("Règles de dépendance sur les fichiers de src/", () => {
       { line: 9, target: "src/domain/time/french-public-holidays.ts" },
       { line: 14, target: "src/domain/time/instant.ts" },
       { line: 15, target: "src/domain/time/paris-time-zone.ts" },
-      { line: 19, target: "src/domain/identity/authenticated-user.ts" },
-      { line: 20, target: "src/domain/identity/disposable-email.ts" },
-      { line: 21, target: "src/domain/identity/email-address.ts" },
-      { line: 26, target: "src/domain/identity/role.ts" },
-      { line: 27, target: "src/domain/identity/user-id.ts" },
+      { line: 19, target: "src/domain/identity/auth-provider.ts" },
+      { line: 20, target: "src/domain/identity/authenticated-user.ts" },
+      { line: 21, target: "src/domain/identity/disposable-email.ts" },
+      { line: 22, target: "src/domain/identity/email-address.ts" },
+      { line: 27, target: "src/domain/identity/role.ts" },
+      { line: 28, target: "src/domain/identity/session-token.ts" },
+      { line: 33, target: "src/domain/identity/user-id.ts" },
     ]);
   });
 
