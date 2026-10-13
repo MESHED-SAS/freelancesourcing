@@ -13,3 +13,15 @@ export {
 } from "./time/french-public-holidays.js";
 export { Instant } from "./time/instant.js";
 export { dayInParis, instantFromParisLocal, localTimeInParis, type LocalTime } from "./time/paris-time-zone.js";
+
+// P2 : identité (rôle, identifiant, adresse email validée, adresses jetables, utilisateur connecté).
+// Types utilisés par le contrat AuthProvider, qui sera défini plus tard.
+export type { AuthenticatedUser } from "./identity/authenticated-user.js";
+export { isDisposableEmail } from "./identity/disposable-email.js";
+export {
+  EmailAddress,
+  type EmailAddressRejectionReason,
+  type EmailAddressResult,
+} from "./identity/email-address.js";
+export type { Role } from "./identity/role.js";
+export { UserId } from "./identity/user-id.js";
