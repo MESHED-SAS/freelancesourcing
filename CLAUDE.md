@@ -135,6 +135,7 @@ Le dépôt de référence est `MESHED-SAS/freelancesourcing` sur GitHub. Il est 
 |---|---|
 | Freelance | `Freelancer` |
 | Recruteur / organisation (cabinet, ESN) | `Recruiter` / `Organization` |
+| Administrateur | `admin` (valeur du type `Role`) |
 | Mission | `Mission` |
 | Candidature | `Application` |
 | Mise en relation | `Introduction` |
