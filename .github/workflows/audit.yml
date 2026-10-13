@@ -1,0 +1,40 @@
+# Audit des dépendances npm (non obligatoire).
+#
+# Ce workflow est volontairement séparé de ci.yml :
+# - le job « test » de ci.yml est Required ; une vulnérabilité publiée dans une
+#   dépendance (événement extérieur au dépôt) ne doit pas bloquer la fusion de
+#   pull requests sans rapport avec les dépendances ;
+# - l'audit doit tourner aussi sans changement de code (schedule hebdomadaire),
+#   ce que ci.yml ne fait pas ;
+# - ci.yml reste ainsi inchangé.
+#
+# npm audit lit package-lock.json et interroge le registre npm officiel :
+# pas de npm ci, aucune autre action que checkout.
+
+name: Audit npm
+
+on:
+  schedule:
+    # Chaque lundi à 04:17 UTC (heure creuse, hors heure pleine).
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Audit des dépendances (tous niveaux, dépendances de développement incluses)
+        run: npm audit
