@@ -37,9 +37,13 @@ describe("SessionToken : création et validation", () => {
     expect(rejection(SessionToken.parse(raw)).reason).toBe("invalid-character");
   });
 
-  it("S8 : refuse un jeton de MAX_LENGTH + 1 caractères (raison too-long)", () => {
+  it("S8 : refuse un jeton de MAX_LENGTH + 1 caractères (raison too-long, contrôlée avant les caractères)", () => {
     expect(SessionToken.MAX_LENGTH).toBe(4096);
     expect(rejection(SessionToken.parse("s".repeat(SessionToken.MAX_LENGTH + 1))).reason).toBe("too-long");
+    // Trop long et contenant un espace : refusé pour sa longueur, pas pour ses caractères.
+    const tooLongWithSpace = "s ".repeat(SessionToken.MAX_LENGTH / 2 + 1);
+    expect(tooLongWithSpace.length).toBeGreaterThan(SessionToken.MAX_LENGTH);
+    expect(rejection(SessionToken.parse(tooLongWithSpace)).reason).toBe("too-long");
   });
 
   it("S9 : accepte un jeton d'exactement MAX_LENGTH caractères", () => {

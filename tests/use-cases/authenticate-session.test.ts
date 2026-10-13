@@ -1,4 +1,4 @@
-// Tests du cas d'usage authenticateSession (US-02, critères 3 et 4). Identifiants stables U1 à U14,
+// Tests du cas d'usage authenticateSession (US-02, critères 3 et 4). Identifiants stables U1 à U15,
 // cités par les preuves par mutation. Le fournisseur est une fausse implémentation de
 // AuthProvider définie ici (le mock des personas viendra dans un prochain incrément).
 // Toutes les adresses utilisent des domaines réservés (exemple.test, alpha-conseil.example), sauf
@@ -24,6 +24,8 @@ const SOPHIE = user("persona-sophie", "freelancer", "sophie@exemple.test");
 const ALPHA_CONSEIL = user("persona-alpha-conseil", "recruiter", "recrutement@alpha-conseil.example");
 const KARIM = user("persona-karim", "freelancer", "karim@yopmail.com");
 const JULIE = user("persona-julie", "freelancer", "julie@a.mailinator.com");
+const DISPOSABLE_RECRUITER = user("persona-recruteur-jetable", "recruiter", "recrutement@yopmail.com");
+const DISPOSABLE_ADMIN = user("persona-admin-jetable", "admin", "admin@yopmail.com");
 
 // Fausse implémentation : connaît quelques jetons et enregistre chaque appel.
 class FakeAuthProvider implements AuthProvider {
@@ -33,6 +35,8 @@ class FakeAuthProvider implements AuthProvider {
     ["jeton-alpha", ALPHA_CONSEIL],
     ["jeton-karim", KARIM],
     ["jeton-julie", JULIE],
+    ["jeton-recruteur-jetable", DISPOSABLE_RECRUITER],
+    ["jeton-admin-jetable", DISPOSABLE_ADMIN],
   ]);
 
   async identify(session: SessionToken): Promise<AuthenticatedUser | null> {
@@ -109,6 +113,18 @@ describe("authenticateSession : adresses jetables (critère 4)", () => {
       ok: false,
       reason: "disposable-email",
     });
+  });
+
+  it("U15 : une adresse jetable est refusée quel que soit le rôle", async () => {
+    for (const [raw, disposableUser, role] of [
+      ["jeton-karim", KARIM, "freelancer"],
+      ["jeton-recruteur-jetable", DISPOSABLE_RECRUITER, "recruiter"],
+      ["jeton-admin-jetable", DISPOSABLE_ADMIN, "admin"],
+    ] as const) {
+      expect(disposableUser.role).toBe(role);
+      expect(disposableUser.email.domain).toBe("yopmail.com");
+      expect(await authenticate(raw)).toMatchObject({ ok: false, reason: "disposable-email" });
+    }
   });
 });
 
