@@ -8,3 +8,6 @@ export { createClock, type ClockConfig } from "./create-clock.js";
 // P2 AuthProvider : personas fictifs (choix explicite obligatoire) ; domaines jetables (US-02, critère 4).
 export { createAuthProvider, type AuthProviderConfig } from "./create-auth-provider.js";
 export { DISPOSABLE_DOMAINS } from "./disposable-domains.js";
+
+// Environnement d'exécution et garde des composants simulés (P1 horloge, P2 authentification).
+export { isMockAllowed, type AppEnvironment } from "./environment.js";
