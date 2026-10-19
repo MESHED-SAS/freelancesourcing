@@ -2,12 +2,17 @@
 // La configuration est reçue en paramètre : cette fonction ne lit ni process ni l'environnement.
 // Aucune valeur par défaut : le seul fournisseur disponible est le mock des personas, dont les jetons
 // sont devinables ; il doit être choisi explicitement. Une valeur absente ou inconnue lève une erreur.
+// « personas » est un composant simulé : il est refusé hors des environnements development et staging.
 
 import { PersonaAuthProvider } from "../adapters/index.js";
 import type { AuthProvider } from "../domain/index.js";
+import { isMockAllowed, type AppEnvironment } from "./environment.js";
 
 export interface AuthProviderConfig {
-  // « personas » (seule valeur acceptée, casse exacte ; développement local uniquement). Chaîne
+  // Environnement d'exécution, obligatoire et sans valeur par défaut ici : le défaut « production »
+  // quand la variable est absente relève de loadConfig.
+  readonly environment: AppEnvironment;
+  // « personas » (seule valeur acceptée, casse exacte ; development et staging uniquement). Chaîne
   // libre : la valeur pourra venir d'une variable d'environnement ; elle est vérifiée ici.
   readonly adapterAuth?: string | undefined;
 }
@@ -20,6 +25,11 @@ export function createAuthProvider(config: AuthProviderConfig): AuthProvider {
     );
   }
   if (adapter === "personas") {
+    if (!isMockAllowed(config.environment)) {
+      throw new Error(
+        "Configuration refusée : l'adaptateur d'authentification « personas » est simulé, et l'environnement ne l'autorise pas (environnements autorisés : development, staging).",
+      );
+    }
     return new PersonaAuthProvider();
   }
   throw new Error(`Valeur inconnue pour adapterAuth : « ${adapter} » (valeur acceptée : « personas »).`);
