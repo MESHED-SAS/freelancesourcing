@@ -53,7 +53,7 @@ Le code est rangé en cinq couches, chacune dans son dossier :
 
 Les règles de dépendance entre couches sont détaillées dans le tableau « Règles de dépendance par couche » ci-dessous. Les cas d'usage manipulent les contrats, jamais un adaptateur précis ; l'interface n'appelle jamais directement le domaine ni un adaptateur, ce qui maintient les contrôles d'accès côté serveur, dans les cas d'usage.
 
-L'assemblage des adaptateurs selon la configuration (la « racine de composition » : lire les variables d'environnement, choisir le mock ou le réel pour chaque contrat, et les fournir aux cas d'usage) se fait en **un point d'entrée unique**. Il est placé dans `src/composition/` (décision de l'US-01).
+L'assemblage des adaptateurs selon la configuration (la « racine de composition » : choisir le mock ou le réel pour chaque contrat et les fournir aux cas d'usage) se fait en **un point d'entrée unique**, placé dans `src/composition/` (décision de l'US-01). Les fonctions de `src/composition/` reçoivent leur configuration en paramètre et ne lisent pas l'environnement ; la lecture des variables d'environnement sera faite par `loadConfig(process.env)` (US-02c, pas encore écrit).
 
 **Règles de dépendance par couche**, contrôlées par `tests/architecture/layer-dependencies.test.ts` :
 
@@ -79,12 +79,25 @@ Limites du contrôle :
 
 Pourquoi `use-cases` et non `application` : dans Next.js, le dossier `app/` désigne le routeur de l'interface web. Le nom `use-cases` évite de confondre les deux.
 
+### 2.2 Environnement d'exécution et composants simulés
+
+**Cette section est la source unique ; CLAUDE.md, `.env.example` et `inventaire-socle.md` y renvoient.**
+
+- L'environnement d'exécution vaut `development`, `staging` ou `production` (type `AppEnvironment`, `src/composition/environment.ts`).
+- **Les composants simulés ne sont autorisés qu'en `development` et `staging`.** À ce jour : l'adaptateur d'authentification « personas » (P2) et l'horloge « simulated » (P1).
+- La garde est une **liste blanche** (`isMockAllowed`) : comparaison exacte, casse comprise, sans normalisation. Toute autre valeur, y compris une valeur incorrecte qui contournerait le typage, est refusée.
+- **L'horloge « system » est autorisée dans tous les environnements.**
+- `createClock` et `createAuthProvider` reçoivent l'environnement en paramètre (champ `environment`, obligatoire, sans valeur par défaut) et lèvent une erreur « Configuration refusée » si un composant simulé est demandé hors `development` et `staging`. Pour « personas », la garde passe après le contrôle de valeur absente ; pour « simulated », avant le contrôle de `simulatedStart`.
+- **Production par défaut :** la lecture de `APP_ENV` sera faite par `loadConfig(process.env)` (US-02c, pas encore écrit). Variable absente : `production` ; valeur inconnue : erreur. D'ici là, aucune variable d'environnement n'est lue.
+
+Tests : `tests/composition/environment.test.ts`, `tests/composition/create-auth-provider.test.ts` et `tests/composition/create-clock.test.ts`.
+
 ## 3. Les contrats et leurs simulations
 
 | # | Contrat (besoin métier) | Simulation au démarrage | Cible pressentie | Condition de bascule | Fonctions du MVP concernées |
 |---|---|---|---|---|---|
-| P1 | **Horloge** : quelle est la date et l'heure ? Quels sont les jours ouvrés ? | **Horloge simulée** que l'on peut avancer à volonté (« avancer de 15 jours ouvrés »), avec un calendrier des jours fériés français | Horloge système et calendrier des jours fériés (liste officielle ou bibliothèque) | Dès la mise en production | E3.4, E4.4, E4.5, règles R1 à R3 |
-| P2 | **Authentification** : qui est connecté, et avec quel rôle ? | Écran de connexion fictif : choisir parmi six personas (Sophie, Karim, Julie et Marc, freelances ; un recruteur d'Alpha Conseil ; un administrateur). **Mock livré** (US-02a) : `PersonaAuthProvider` (`src/adapters/auth/`), adresses fictives en domaines réservés, jetons devinables. `createAuthProvider` (`src/composition/`) reçoit sa configuration en paramètre et n'a **aucune valeur par défaut** : le mock exige le choix explicite « personas ». La lecture de `ADAPTER_AUTH` dans l'environnement n'est pas encore branchée, et l'écran de connexion viendra avec l'US-02c. Adaptateur réel à venir | Supabase Auth avec LinkedIn, Google et Microsoft | Applications de connexion créées chez LinkedIn, Google et Microsoft | E1.1 |
+| P1 | **Horloge** : quelle est la date et l'heure ? Quels sont les jours ouvrés ? | **Horloge simulée** que l'on peut avancer à volonté (« avancer de 15 jours ouvrés »), avec un calendrier des jours fériés français ; autorisée en development et staging uniquement (§2.2). L'horloge système est déjà disponible et choisie par défaut | Horloge système et calendrier des jours fériés (liste officielle ou bibliothèque) | Dès la mise en production | E3.4, E4.4, E4.5, règles R1 à R3 |
+| P2 | **Authentification** : qui est connecté, et avec quel rôle ? | Écran de connexion fictif : choisir parmi six personas (Sophie, Karim, Julie et Marc, freelances ; un recruteur d'Alpha Conseil ; un administrateur). **Mock livré** (US-02a) : `PersonaAuthProvider` (`src/adapters/auth/`), adresses fictives en domaines réservés, jetons devinables. `createAuthProvider` (`src/composition/`) reçoit sa configuration en paramètre et n'a **aucune valeur par défaut** : le mock exige le choix explicite « personas ». Il est refusé hors development et staging (§2.2). La lecture de `ADAPTER_AUTH` dans l'environnement n'est pas encore branchée, et l'écran de connexion viendra avec l'US-02c. Adaptateur réel à venir | Supabase Auth avec LinkedIn, Google et Microsoft | Applications de connexion créées chez LinkedIn, Google et Microsoft | E1.1 |
 | P3 | **Stockage des données** : missions, profils, candidatures, notes, consentements | Stockage en mémoire, avec un jeu de données de démonstration | PostgreSQL (Supabase), avec des **règles d'accès dans la base** (Row Level Security) | Choix de la région d'hébergement européenne | Toutes |
 | P4 | **Contrôle des accès (consentement)** : ce recruteur peut-il voir ce profil ? | **Règles écrites et testées dans le code métier** | Les mêmes règles **dupliquées dans la base** (Row Level Security), en double protection | En même temps que P3 | E2.1, E2.2, E2.5, E2.7 |
 | P5 | **Envoi d'emails** : relances, notifications, mises en relation | **Boîte de réception de test** consultable dans l'application ; aucun email réel n'est envoyé | Service d'emails européen (à choisir) | Choix du fournisseur et du nom de domaine | E10.2, E6.1 |
@@ -105,6 +118,7 @@ Pourquoi `use-cases` et non `application` : dans Next.js, le dossier `app/` dés
 4. Le choix de l'adaptateur (mock ou réel) se fait **par configuration**, jamais en modifiant le code.
 5. **Aucune donnée réelle dans les mocks** : personas et SIREN fictifs uniquement.
 6. **Respecter les règles de dépendance entre couches** (section 2.1). Leur respect est vérifié par `tests/architecture/layer-dependencies.test.ts` (limites indiquées en section 2.1).
+7. **Aucun composant simulé en production** : respecter la règle de la section 2.2 (liste blanche `development`, `staging` ; production par défaut).
 
 ## 5. Ce qui reste à décider (composant par composant)
 

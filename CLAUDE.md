@@ -21,6 +21,7 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 - Le **code métier** (dossier `src/domain/`) ne dépend d'**aucun** framework ni service externe.
 - **Tout accès à l'extérieur passe par un contrat (port)** défini dans le domaine, avec au moins deux adaptateurs : un **simulé** (mock) et, plus tard, un **réel**.
 - Le choix de l'adaptateur se fait **par configuration** (variables d'environnement), jamais en modifiant le code.
+- **Composants simulés hors production uniquement.** Les composants simulés (authentification « personas », horloge « simulated ») ne sont autorisés qu'en `development` et `staging` ; l'environnement vaut `production` par défaut et toute valeur inconnue est refusée ; l'horloge « system » est autorisée partout. Règle complète (source unique) : `docs/technique/architecture-cible-et-mocks.md`, §2.2.
 
 **Organisation du code**
 
@@ -38,8 +39,8 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 
 | Contrat | Rôle | Adaptateur actuel |
 |---|---|---|
-| P1 `Clock` | Date et heure, jours ouvrés (jours fériés français) | Horloge simulée qu'on peut avancer |
-| P2 `AuthProvider` | Identité et rôle de l'utilisateur connecté | Personas fictifs |
+| P1 `Clock` | Date et heure, jours ouvrés (jours fériés français) | Horloge système par défaut ; horloge simulée qu'on peut avancer (development et staging uniquement) |
+| P2 `AuthProvider` | Identité et rôle de l'utilisateur connecté | Personas fictifs (choix explicite ; development et staging uniquement) |
 | P3 `Repositories` | Persistance | En mémoire |
 | P4 `AccessPolicy` | Qui peut voir quoi (consentement) | Règles dans le domaine |
 | P5 `EmailSender` | Envoi d'emails | Boîte de réception de test |
