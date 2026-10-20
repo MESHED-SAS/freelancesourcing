@@ -14,8 +14,8 @@ export {
 export { Instant } from "./time/instant.js";
 export { dayInParis, instantFromParisLocal, localTimeInParis, type LocalTime } from "./time/paris-time-zone.js";
 
-// P2 : identité (rôle, identifiant, adresse email validée, adresses jetables, utilisateur connecté,
-// jeton de session, contrat AuthProvider).
+// P2 : identité (rôle, règle de rôle, identifiant, adresse email validée, adresses jetables,
+// utilisateur connecté, jeton de session, contrat AuthProvider).
 export type { AuthProvider } from "./identity/auth-provider.js";
 export type { AuthenticatedUser } from "./identity/authenticated-user.js";
 export { isDisposableEmail } from "./identity/disposable-email.js";
@@ -24,6 +24,7 @@ export {
   type EmailAddressRejectionReason,
   type EmailAddressResult,
 } from "./identity/email-address.js";
+export { isRoleAllowed } from "./identity/role-policy.js";
 export type { Role } from "./identity/role.js";
 export {
   SessionToken,
