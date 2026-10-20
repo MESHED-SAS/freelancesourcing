@@ -95,7 +95,8 @@ Un récit utilisateur est **terminé** seulement si :
 - **Claude Code ne fusionne jamais une pull request.** Le porteur de projet relit le diff, puis fusionne lui-même. Le mode de fusion (merge, squash ou rebase) est son choix.
 - Si une règle de gestion est ambiguë ou manque : **poser la question**, ne pas inventer. Signaler toute contradiction avec les documents de référence (`docs/` et `../meshed-docs/`).
 - Langue : **documentation et interface en français**. Code (noms de variables et de fonctions) en anglais, avec le glossaire de la section 9.
-- Messages de commit clairs, en français, qui citent le récit concerné (par exemple `US-05 : ...`). Conserver l'attribution automatique de Claude Code dans les commits (ligne `Co-Authored-By`) : elle fait partie de la transparence du projet. En cas de fusion en squash, cette ligne doit être conservée dans le message de fusion.
+- Messages de commit clairs, en français, qui citent le récit concerné (par exemple `US-05 : ...`). Un changement sans récit utilisateur (maintenance, outillage, documentation) a un titre préfixé par `Maintenance : ...`.
+- Conserver l'attribution de Claude Code dans les commits : elle fait partie de la transparence du projet. La ligne `Co-Authored-By: <nom du modèle> <noreply@anthropic.com>` est seule sur sa ligne, dans le dernier paragraphe du message, et se vérifie avec `git log -1 --format=fuller`. En cas de fusion en squash, le message de fusion de la pull request la conserve sous la même forme.
 
 ## 8. Git, GitHub et miroir
 
@@ -105,8 +106,9 @@ Le dépôt de référence est `MESHED-SAS/freelancesourcing` sur GitHub. Il est 
 
 - `main` est protégée : pas de push direct, pas de suppression, pas de réécriture d'historique. Tout changement passe par une pull request.
 - Une branche par incrément, au nom court et explicite (par exemple `us-01-horloge-jours-ouvres`).
-- Le titre de la pull request cite le récit (`US-01 : ...`). La description indique : ce qui change, les critères d'acceptation couverts, les tests ajoutés, si l'inventaire a été mis à jour, et les points que le relecteur doit examiner en priorité.
+- Le titre de la pull request cite le récit (`US-01 : ...`), ou est préfixé par `Maintenance : ...` pour un changement sans récit utilisateur (maintenance, outillage, documentation). La description indique : ce qui change, les critères d'acceptation couverts, les tests ajoutés, si l'inventaire a été mis à jour, et les points que le relecteur doit examiner en priorité. Pour une PR de maintenance, la description remplace les critères d'acceptation par l'objectif de la maintenance et la façon de vérifier qu'il est atteint.
 - Petites pull requests : un changement qui ne se relit pas en quelques minutes est trop gros et doit être découpé.
+- Claude Code n'exécute **aucune commande git qui écrit** (`git add`, `git commit`, `git switch`, `git checkout`, `git branch`, `git restore`, `git reset`, `git stash`, `git merge`, `git rebase`, `git tag`). Il fournit le message de commit complet, ligne `Co-Authored-By` incluse ; le porteur de projet crée la branche, committe et pousse. Lecture seule autorisée : `git status`, `git diff`, `git log`, `git show`.
 
 **Interdits formels** (sauf demande explicite et écrite du porteur de projet)
 
