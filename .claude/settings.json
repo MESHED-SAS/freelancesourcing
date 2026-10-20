@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(npm test)",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest *)"
+    ],
+    "deny": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(git fetch *)",
+      "Bash(git switch *)",
+      "Bash(git checkout *)",
+      "Bash(git branch *)",
+      "Bash(git restore *)",
+      "Bash(git reset *)",
+      "Bash(git stash *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git tag *)",
+      "PowerShell(git add *)",
+      "PowerShell(git commit *)",
+      "PowerShell(git push *)",
+      "PowerShell(git pull *)",
+      "PowerShell(git fetch *)",
+      "PowerShell(git switch *)",
+      "PowerShell(git checkout *)",
+      "PowerShell(git branch *)",
+      "PowerShell(git restore *)",
+      "PowerShell(git reset *)",
+      "PowerShell(git stash *)",
+      "PowerShell(git merge *)",
+      "PowerShell(git rebase *)",
+      "PowerShell(git tag *)",
+      "Bash(git -C *)",
+      "Bash(git -c *)",
+      "PowerShell(git -C *)",
+      "PowerShell(git -c *)",
+      "Edit(.github/**)",
+      "Read(.env)",
+      "Read(.env.local)"
+    ]
+  }
+}
