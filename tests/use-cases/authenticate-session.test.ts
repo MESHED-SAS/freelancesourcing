@@ -1,8 +1,9 @@
 // Tests du cas d'usage authenticateSession (US-02, critères 3 et 4). Identifiants stables U1 à U15,
 // cités par les preuves par mutation. Le fournisseur est une fausse implémentation de
 // AuthProvider définie ici, et non le mock des personas : elle fournit des utilisateurs à adresse
-// jetable, absents des personas, et enregistre chaque appel avec le jeton reçu.
-// Toutes les adresses utilisent des domaines réservés (exemple.test, alpha-conseil.example), sauf
+// jetable, absents des personas, et enregistre chaque appel avec le jeton reçu. Ses identifiants,
+// adresses et jetons sont neutres (test-user-a, …) : ils n'imitent pas les personas.
+// Toutes les adresses utilisent des domaines réservés (exemple.test, cabinet.example), sauf
 // yopmail.com et mailinator.com, qui sont les services jetables visés.
 import { describe, expect, it } from "vitest";
 import type { AuthProvider } from "../../src/domain/identity/auth-provider.js";
@@ -21,23 +22,23 @@ function user(id: string, role: Role, rawEmail: string): AuthenticatedUser {
   return Object.freeze({ id: UserId.of(id), role, email: result.email });
 }
 
-const SOPHIE = user("persona-sophie", "freelancer", "sophie@exemple.test");
-const ALPHA_CONSEIL = user("persona-alpha-conseil", "recruiter", "recrutement@alpha-conseil.example");
-const KARIM = user("persona-karim", "freelancer", "karim@yopmail.com");
-const JULIE = user("persona-julie", "freelancer", "julie@a.mailinator.com");
-const DISPOSABLE_RECRUITER = user("persona-recruteur-jetable", "recruiter", "recrutement@yopmail.com");
-const DISPOSABLE_ADMIN = user("persona-admin-jetable", "admin", "admin@yopmail.com");
+const FREELANCER = user("test-user-a", "freelancer", "user-a@exemple.test");
+const RECRUITER = user("test-user-b", "recruiter", "user-b@cabinet.example");
+const DISPOSABLE_FREELANCER = user("test-user-c", "freelancer", "user-c@yopmail.com");
+const DISPOSABLE_SUBDOMAIN_FREELANCER = user("test-user-d", "freelancer", "user-d@a.mailinator.com");
+const DISPOSABLE_RECRUITER = user("test-user-e", "recruiter", "user-e@yopmail.com");
+const DISPOSABLE_ADMIN = user("test-user-f", "admin", "user-f@yopmail.com");
 
 // Fausse implémentation : connaît quelques jetons et enregistre chaque appel.
 class FakeAuthProvider implements AuthProvider {
   readonly calls: SessionToken[] = [];
   private readonly users = new Map<string, AuthenticatedUser>([
-    ["jeton-sophie", SOPHIE],
-    ["jeton-alpha", ALPHA_CONSEIL],
-    ["jeton-karim", KARIM],
-    ["jeton-julie", JULIE],
-    ["jeton-recruteur-jetable", DISPOSABLE_RECRUITER],
-    ["jeton-admin-jetable", DISPOSABLE_ADMIN],
+    ["jeton-a", FREELANCER],
+    ["jeton-b", RECRUITER],
+    ["jeton-c", DISPOSABLE_FREELANCER],
+    ["jeton-d", DISPOSABLE_SUBDOMAIN_FREELANCER],
+    ["jeton-e", DISPOSABLE_RECRUITER],
+    ["jeton-f", DISPOSABLE_ADMIN],
   ]);
 
   async identify(session: SessionToken): Promise<AuthenticatedUser | null> {
@@ -56,9 +57,9 @@ function authenticate(
 
 describe("authenticateSession : identification", () => {
   it("U1 : un jeton connu, avec une adresse non jetable, renvoie l'utilisateur tel que fourni", async () => {
-    const result = await authenticate("jeton-sophie");
-    expect(result).toEqual({ ok: true, user: SOPHIE });
-    expect(result.ok && result.user).toBe(SOPHIE);
+    const result = await authenticate("jeton-a");
+    expect(result).toEqual({ ok: true, user: FREELANCER });
+    expect(result.ok && result.user).toBe(FREELANCER);
   });
 
   it("U2 : un jeton bien formé mais inconnu est refusé (unknown-session)", async () => {
@@ -94,7 +95,7 @@ describe("authenticateSession : jeton absent ou mal formé (contrôlé en premie
 
 describe("authenticateSession : adresses jetables (critère 4)", () => {
   it("U7 : une adresse d'un domaine jetable est refusée (disposable-email)", async () => {
-    expect(await authenticate("jeton-karim")).toEqual({
+    expect(await authenticate("jeton-c")).toEqual({
       ok: false,
       reason: "disposable-email",
       message: "Connexion refusée : les adresses email jetables ne sont pas acceptées.",
@@ -102,15 +103,18 @@ describe("authenticateSession : adresses jetables (critère 4)", () => {
   });
 
   it("U8 : une adresse d'un sous-domaine jetable est refusée", async () => {
-    expect(await authenticate("jeton-julie")).toMatchObject({ ok: false, reason: "disposable-email" });
+    expect(await authenticate("jeton-d")).toMatchObject({ ok: false, reason: "disposable-email" });
   });
 
   it("U9 : avec une liste vide, la même adresse yopmail est acceptée (liste non écrite en dur)", async () => {
-    expect(await authenticate("jeton-karim", new FakeAuthProvider(), [])).toEqual({ ok: true, user: KARIM });
+    expect(await authenticate("jeton-c", new FakeAuthProvider(), [])).toEqual({
+      ok: true,
+      user: DISPOSABLE_FREELANCER,
+    });
   });
 
-  it("U10 : la liste reçue est celle utilisée (exemple.test rend Sophie jetable)", async () => {
-    expect(await authenticate("jeton-sophie", new FakeAuthProvider(), ["exemple.test"])).toMatchObject({
+  it("U10 : la liste reçue est celle utilisée (exemple.test rend l'utilisateur A jetable)", async () => {
+    expect(await authenticate("jeton-a", new FakeAuthProvider(), ["exemple.test"])).toMatchObject({
       ok: false,
       reason: "disposable-email",
     });
@@ -118,9 +122,9 @@ describe("authenticateSession : adresses jetables (critère 4)", () => {
 
   it("U15 : une adresse jetable est refusée quel que soit le rôle", async () => {
     for (const [raw, disposableUser, role] of [
-      ["jeton-karim", KARIM, "freelancer"],
-      ["jeton-recruteur-jetable", DISPOSABLE_RECRUITER, "recruiter"],
-      ["jeton-admin-jetable", DISPOSABLE_ADMIN, "admin"],
+      ["jeton-c", DISPOSABLE_FREELANCER, "freelancer"],
+      ["jeton-e", DISPOSABLE_RECRUITER, "recruiter"],
+      ["jeton-f", DISPOSABLE_ADMIN, "admin"],
     ] as const) {
       expect(disposableUser.role).toBe(role);
       expect(disposableUser.email.domain).toBe("yopmail.com");
@@ -132,19 +136,19 @@ describe("authenticateSession : adresses jetables (critère 4)", () => {
 describe("authenticateSession : appels, gel, messages et pannes", () => {
   it("U11 : le fournisseur est appelé une seule fois, avec un jeton de même valeur", async () => {
     const provider = new FakeAuthProvider();
-    await authenticate("jeton-alpha", provider);
+    await authenticate("jeton-b", provider);
     expect(provider.calls).toHaveLength(1);
-    expect(provider.calls[0]?.value).toBe("jeton-alpha");
+    expect(provider.calls[0]?.value).toBe("jeton-b");
   });
 
   it("U12 : les quatre issues renvoient un résultat gelé", async () => {
-    const accepted = await authenticate("jeton-sophie");
+    const accepted = await authenticate("jeton-a");
     expect(accepted.ok).toBe(true);
     expect(Object.isFrozen(accepted)).toBe(true);
     for (const [raw, reason] of [
       ["a b", "invalid-session-token"],
       ["jeton-inconnu", "unknown-session"],
-      ["jeton-karim", "disposable-email"],
+      ["jeton-c", "disposable-email"],
     ] as const) {
       const refusal = await authenticate(raw);
       expect(refusal).toMatchObject({ ok: false, reason });
@@ -156,13 +160,14 @@ describe("authenticateSession : appels, gel, messages et pannes", () => {
     for (const [raw, reason] of [
       ["jeton secret", "invalid-session-token"],
       ["jeton-inconnu", "unknown-session"],
-      ["jeton-karim", "disposable-email"],
+      ["jeton-c", "disposable-email"],
     ] as const) {
       const refusal = await authenticate(raw);
       expect(refusal).toMatchObject({ ok: false, reason });
       const message = refusal.ok ? "" : refusal.message;
       expect(message).not.toContain(raw);
-      for (const fragment of [KARIM.email.value, KARIM.email.localPart, KARIM.email.domain]) {
+      const { email } = DISPOSABLE_FREELANCER;
+      for (const fragment of [email.value, email.localPart, email.domain]) {
         expect(message).not.toContain(fragment);
       }
     }
@@ -171,6 +176,6 @@ describe("authenticateSession : appels, gel, messages et pannes", () => {
   it("U14 : une panne du fournisseur (promesse rejetée) est propagée telle quelle", async () => {
     const failure = new Error("Fournisseur indisponible");
     const provider: AuthProvider = { identify: () => Promise.reject(failure) };
-    await expect(authenticate("jeton-sophie", provider)).rejects.toBe(failure);
+    await expect(authenticate("jeton-a", provider)).rejects.toBe(failure);
   });
 });
