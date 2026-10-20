@@ -9,3 +9,12 @@ export {
   type AuthenticationRefusalReason,
   type AuthenticationResult,
 } from "./authenticate-session.js";
+
+// US-02b : autoriser selon le rôle (moindre privilège, refus journalisé par le contrat AuditLog).
+export {
+  type AuthorizationRefusalReason,
+  type AuthorizationResult,
+  authorizeRole,
+  type AuthorizeRoleDependencies,
+  type RoleRequirement,
+} from "./authorize-role.js";

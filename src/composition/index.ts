@@ -9,5 +9,9 @@ export { createClock, type ClockConfig } from "./create-clock.js";
 export { createAuthProvider, type AuthProviderConfig } from "./create-auth-provider.js";
 export { DISPOSABLE_DOMAINS } from "./disposable-domains.js";
 
-// Environnement d'exécution et garde des composants simulés (P1 horloge, P2 authentification).
+// P10 AuditLog : journal en mémoire (choix explicite obligatoire).
+export { createAuditLog, type AuditLogConfig } from "./create-audit-log.js";
+
+// Environnement d'exécution et garde des composants simulés (P1 horloge, P2 authentification,
+// P10 journal d'audit).
 export { isMockAllowed, type AppEnvironment } from "./environment.js";

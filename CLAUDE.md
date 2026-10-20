@@ -147,3 +147,4 @@ Le dépôt de référence est `MESHED-SAS/freelancesourcing` sur GitHub. Il est 
 | Issue de mission | `MissionOutcome` |
 | Évaluation / critère | `Rating` / `Criterion` |
 | Jours ouvrés | `BusinessDays` |
+| Journal d'audit | `AuditLog` |
