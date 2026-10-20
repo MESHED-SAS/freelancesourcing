@@ -9,3 +9,6 @@ export { SystemClock } from "./clock/system-clock.js";
 // P2 AuthProvider : personas fictifs (mock ; jetons devinables, jamais activé par défaut).
 export { PersonaAuthProvider } from "./auth/persona-auth-provider.js";
 export { PERSONAS, type Persona } from "./auth/personas.js";
+
+// P10 AuditLog : journal en mémoire (mock ; perdu à l'arrêt du processus).
+export { InMemoryAuditLog } from "./audit/in-memory-audit-log.js";

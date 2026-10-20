@@ -32,3 +32,6 @@ export {
   type SessionTokenResult,
 } from "./identity/session-token.js";
 export { UserId } from "./identity/user-id.js";
+
+// P10 : journal d'audit (version minimale : entrée, action, contrat AuditLog en ajout seul).
+export type { AuditAction, AuditEntry, AuditLog } from "./audit/audit-log.js";

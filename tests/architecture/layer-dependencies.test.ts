@@ -430,7 +430,7 @@ describe("Règles de dépendance sur les fichiers de src/", () => {
     );
   });
 
-  it("lit les quatorze exports de domain/index.ts, dont l'export multiligne (témoin positif)", () => {
+  it("lit les quinze exports de domain/index.ts, dont l'export multiligne (témoin positif)", () => {
     // Couplé volontairement au contenu de src/domain/index.ts : après un ajout légitime dans ce fichier, adapter ce test.
     expect(resolvedImports("src/domain/index.ts")).toEqual([
       { line: 6, target: "src/domain/time/business-days.ts" },
@@ -447,6 +447,7 @@ describe("Règles de dépendance sur les fichiers de src/", () => {
       { line: 28, target: "src/domain/identity/role.ts" },
       { line: 29, target: "src/domain/identity/session-token.ts" },
       { line: 34, target: "src/domain/identity/user-id.ts" },
+      { line: 37, target: "src/domain/audit/audit-log.ts" },
     ]);
   });
 
