@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "es2024"
+    ],
+    "types": [],
+    "allowJs": false,
+    "plugins": []
+  },
+  "include": [
+    "src/domain",
+    "src/use-cases"
+  ]
+}

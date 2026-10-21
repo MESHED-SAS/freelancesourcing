@@ -12,8 +12,8 @@
     "dev": "next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start -H 127.0.0.1",
-    "test": "tsc --noEmit && vitest run",
-    "typecheck": "tsc --noEmit"
+    "test": "npm run typecheck && vitest run",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.core.json"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
