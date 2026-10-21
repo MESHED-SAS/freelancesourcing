@@ -57,6 +57,7 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 - importer un SDK externe dans `src/domain/`, `src/use-cases/` ou `src/composition/`.
 
 Les deux premières interdictions sont contrôlées par `tests/architecture/clock-usage.test.ts`.
+Le noyau (`src/domain/`, `src/use-cases/`) est aussi compilé sans types DOM ni Node (`tsconfig.core.json`, lancé par `npm test`) ; limite : `types: []` coupe seulement le chargement automatique des `@types`, le test des couches empêche les imports qui les rouvriraient.
 
 **Cible pressentie** (non encore branchée) : Supabase et PostgreSQL (avec Row Level Security), Next.js, hébergeur français, service d'emails européen. Voir `docs/technique/architecture-cible-et-mocks.md`.
 

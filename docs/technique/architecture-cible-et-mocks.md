@@ -70,12 +70,14 @@ Tout fichier de `src/` appartient à l'une de ces cinq couches. `require(` est r
 Limites du contrôle :
 
 - lecture par motifs sur le texte, commentaires masqués, et non par arbre syntaxique : le test protège contre l'oubli, pas contre un contournement volontaire ;
-- seuls les fichiers `src/**/*.ts` sont lus : le motif de `tests/architecture/source-files.ts` doit être élargi (`.tsx`) avant de créer `src/app/` ;
+- seuls les fichiers `.ts` et `.tsx` de `src/` sont lus (motif de `tests/architecture/source-files.ts`) : un `.mts`, `.cts` ou `.js` n'est pas lu ; le JSX est lu comme du texte : une apostrophe dans un texte JSX masque la fin de sa ligne (limite connue, test dédié dans `tests/architecture/clock-usage.test.ts`) ;
 - les cycles d'imports ne sont pas contrôlés ;
 - `import type` compte comme un import : une dépendance de type est soumise aux mêmes règles ;
 - les spécificateurs commençant par `#` ou `/` sont traités comme des paquets externes.
 
 **Horloge :** `Date.now(` et `new Date` (avec ou sans parenthèses) sont interdits dans tout `src/`, sauf `src/adapters/clock/system-clock.ts` (adaptateur système de P1). Les identifiants `Date`, `performance`, `process` et `Temporal` sont interdits dans `src/domain/` et `src/use-cases/` (commentaires et chaînes exclus). Contrôle : `tests/architecture/clock-usage.test.ts`.
+
+**Types du noyau :** `src/domain/` et `src/use-cases/` sont aussi compilés sans types DOM ni Node (`tsconfig.core.json`, lancé par `npm test`) ; limite : `types: []` coupe seulement le chargement automatique des `@types`, c'est le test des couches qui empêche les imports qui les rouvriraient.
 
 Pourquoi `use-cases` et non `application` : dans Next.js, le dossier `app/` désigne le routeur de l'interface web. Le nom `use-cases` évite de confondre les deux.
 

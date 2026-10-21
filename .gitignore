@@ -77,6 +77,8 @@ web_modules/
 # Next.js build output
 .next
 out
+# Types générés par Next.js à chaque build ou démarrage (non versionnés, recommandation de Next)
+next-env.d.ts
 
 # Nuxt.js build / generate output
 .nuxt

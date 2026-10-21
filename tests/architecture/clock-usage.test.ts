@@ -3,8 +3,12 @@
 //           process, Temporal dans le code (commentaires, chaînes et texte des gabarits exclus).
 // Règle 2 : dans tout src/ sauf l'adaptateur système de P1, aucun « Date.now( » ni « new Date »
 //           (avec ou sans parenthèses) dans le code.
+// Fichiers lus : src/**/*.ts et src/**/*.tsx.
 // Limite assumée : ce test protège contre l'oubli, pas contre un contournement volontaire
 // (globalThis["Date"], alias, accès par chaîne).
+// Limite connue : le JSX est lu comme du texte. Une apostrophe dans un texte JSX
+// (<p>l'accès</p>) est prise pour le début d'une chaîne et masque la fin de sa ligne : un
+// Date.now() écrit après elle sur la même ligne n'est pas détecté.
 import { describe, expect, it } from "vitest";
 import { maskNonCode, type SourceFile, sourceFiles } from "./source-files.js";
 
@@ -129,6 +133,22 @@ describe("Détection des usages de l'heure (chaînes écrites en dur)", () => {
   });
 });
 
+describe("Fichiers .tsx (synthétiques)", () => {
+  it("détecte Date.now() dans une expression JSX d'un .tsx (AR2)", () => {
+    const files = [
+      { path: "src/app/page.tsx", content: 'export default function Page() {\n  return <p className="date">{Date.now()}</p>;\n}' },
+    ];
+    expect(report(files, findDirectClockCalls)).toEqual(["src/app/page.tsx:2 : Date.now("]);
+  });
+
+  it("limite connue : une apostrophe dans un texte JSX masque la fin de sa ligne", () => {
+    // Fige la limite documentée en tête de fichier ; ce n'est pas un comportement souhaité.
+    // La ligne 1 contient un Date.now() non détecté ; la ligne 2, sans apostrophe, est détectée.
+    const files = [{ path: "src/app/page.tsx", content: "const p = <p>l'accès {Date.now()}</p>;\nconst q = <p>{Date.now()}</p>;" }];
+    expect(report(files, findDirectClockCalls)).toEqual(["src/app/page.tsx:2 : Date.now("]);
+  });
+});
+
 describe("Règles d'horloge sur les fichiers de src/", () => {
   const paths = sourceFiles.map((f) => f.path);
   const coreFiles = sourceFiles.filter((f) => CORE_FOLDERS.some((folder) => f.path.startsWith(folder)));
@@ -137,6 +157,7 @@ describe("Règles d'horloge sur les fichiers de src/", () => {
   it("trouve bien les fichiers de src/ (le test ne passe jamais à vide)", () => {
     expect(paths).toContain("src/domain/time/day.ts");
     expect(paths).toContain("src/use-cases/index.ts");
+    expect(paths).toContain("src/app/page.tsx");
     expect(paths).toContain(SYSTEM_CLOCK);
   });
 
