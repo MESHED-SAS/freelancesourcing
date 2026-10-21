@@ -1,10 +1,11 @@
 // Sources de src/ pour les tests d'architecture (règles de CLAUDE.md §2).
 // import.meta.glob est remplacé par Vite au chargement du test : aucune API Node, aucune
 // dépendance ajoutée. Le motif doit rester une chaîne littérale, relative à ce fichier.
+// Fichiers lus : .ts et .tsx. Un .mts, .cts ou .js de src/ n'est pas lu.
 
 const SOURCE_PREFIX = "../../";
 
-const rawSources = import.meta.glob("../../src/**/*.ts", {
+const rawSources = import.meta.glob("../../src/**/*.{ts,tsx}", {
   eager: true,
   query: "?raw",
   import: "default",

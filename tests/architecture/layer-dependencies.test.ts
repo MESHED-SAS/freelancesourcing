@@ -10,8 +10,9 @@
 // Limite assumée : lecture par motifs sur le texte (commentaires masqués), pas par arbre
 // syntaxique. Le test protège contre l'oubli, pas contre un contournement volontaire.
 // Limites connues :
-// - seuls les fichiers src/**/*.ts sont lus : un .tsx, .mts, .cts ou .js y échappe (élargir le
-//   motif de source-files.ts avant de créer src/app/) ;
+// - seuls les fichiers src/**/*.ts et src/**/*.tsx sont lus : un .mts, .cts ou .js y échappe ;
+// - le JSX est lu comme du texte : une apostrophe dans un texte JSX (<p>l'accès</p>) est prise
+//   pour le début d'une chaîne et masque la fin de sa ligne (voir clock-usage.test.ts) ;
 // - un spécificateur commençant par « # » ou « / » est traité comme un paquet externe ;
 // - un chemin contenant un guillemet échappé n'est pas lu ;
 // - import() sur un gabarit, même sans ${…}, est refusé comme non littéral ;
@@ -83,8 +84,9 @@ function isRelative(specifier: string): boolean {
 }
 
 // Chemin du fichier visé depuis la racine du dépôt, ou null si le chemin sort du dépôt.
-// Segments « . » et « .. » traités à la main. Extensions : x.js → x.ts ; x.ts gardé ;
-// sans extension, x.ts, ou x/index.ts si seul ce dernier existe parmi les fichiers connus.
+// Segments « . » et « .. » traités à la main. Extensions : x.ts et x.tsx gardés ; x.js → x.ts,
+// ou x.tsx si seul ce dernier existe parmi les fichiers connus ; sans extension, le premier
+// fichier connu parmi x.ts, x.tsx, x/index.ts, x/index.tsx. À défaut, x.ts.
 function resolveRelative(from: string, specifier: string, known: ReadonlySet<string>): string | null {
   const segments = from.split("/").slice(0, -1);
   for (const part of specifier.split("/")) {
@@ -97,11 +99,11 @@ function resolveRelative(from: string, specifier: string, known: ReadonlySet<str
     }
   }
   const base = segments.join("/");
-  if (base.endsWith(".js")) return `${base.slice(0, -3)}.ts`;
-  if (base.endsWith(".ts")) return base;
-  const asFile = `${base}.ts`;
-  const asIndex = `${base}/index.ts`;
-  return !known.has(asFile) && known.has(asIndex) ? asIndex : asFile;
+  if (base.endsWith(".ts") || base.endsWith(".tsx")) return base;
+  const stem = base.endsWith(".js") ? base.slice(0, -3) : base;
+  const candidates = [`${stem}.ts`, `${stem}.tsx`];
+  if (stem === base) candidates.push(`${base}/index.ts`, `${base}/index.tsx`);
+  return candidates.find((candidate) => known.has(candidate)) ?? `${stem}.ts`;
 }
 
 // Couche d'un chemin src/<couche>/… ; null pour un fichier directement dans src/ ou ailleurs.
@@ -162,6 +164,16 @@ describe("Lecture des imports et calcul de chemin", () => {
     expect(resolveRelative("src/domain/index.ts", "./time/day", known)).toBe("src/domain/time/day.ts");
     expect(resolveRelative("src/domain/index.ts", "./other", known)).toBe("src/domain/other.ts");
     expect(resolveRelative("src/domain/index.ts", "./time/day.ts", known)).toBe("src/domain/time/day.ts");
+  });
+
+  it("résout vers un .tsx : x.js → x.tsx si seul ce fichier existe, x.tsx gardé, x.ts prioritaire", () => {
+    const known = new Set(["src/app/layout.tsx", "src/app/ui/index.tsx", "src/app/both.ts", "src/app/both.tsx"]);
+    expect(resolveRelative("src/app/page.tsx", "./layout.js", known)).toBe("src/app/layout.tsx");
+    expect(resolveRelative("src/app/page.tsx", "./layout.tsx", known)).toBe("src/app/layout.tsx");
+    expect(resolveRelative("src/app/page.tsx", "./layout", known)).toBe("src/app/layout.tsx");
+    expect(resolveRelative("src/app/page.tsx", "./ui", known)).toBe("src/app/ui/index.tsx");
+    expect(resolveRelative("src/app/page.tsx", "./both.js", known)).toBe("src/app/both.ts");
+    expect(resolveRelative("src/app/page.tsx", "./missing.js", known)).toBe("src/app/missing.ts");
   });
 
   it("signale un chemin qui sort du dépôt", () => {
@@ -292,6 +304,20 @@ describe("findDependencyViolations (fichiers synthétiques)", () => {
       "src/app/page.ts:2 : app → domain (src/domain/time/day.ts)",
       "src/app/page.ts:3 : app → adapters (src/adapters/clock/system-clock.ts)",
     ]);
+  });
+
+  it("vérifie aussi un .tsx contenant du JSX : app → domain refusé (AR1)", () => {
+    const files = [
+      file(
+        "src/app/page.tsx",
+        'import { listMissions } from "../use-cases/list-missions.js";',
+        'import { Day } from "../domain/time/day.js";',
+        "export default function Page() {",
+        '  return <main className="page">{listMissions().length}</main>;',
+        "}",
+      ),
+    ];
+    expect(findDependencyViolations(files)).toEqual(["src/app/page.tsx:2 : app → domain (src/domain/time/day.ts)"]);
   });
 
   it("composition : refuse un paquet externe et app", () => {
