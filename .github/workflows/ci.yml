@@ -40,3 +40,8 @@ jobs:
 
       - name: Tests (vérification des types puis Vitest)
         run: npm test
+
+      - name: Construction de l'application (Next.js)
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"

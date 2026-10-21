@@ -157,6 +157,7 @@ describe("Règles d'horloge sur les fichiers de src/", () => {
   it("trouve bien les fichiers de src/ (le test ne passe jamais à vide)", () => {
     expect(paths).toContain("src/domain/time/day.ts");
     expect(paths).toContain("src/use-cases/index.ts");
+    expect(paths).toContain("src/app/page.tsx");
     expect(paths).toContain(SYSTEM_CLOCK);
   });
 
