@@ -70,7 +70,7 @@ Tout fichier de `src/` appartient à l'une de ces cinq couches. `require(` est r
 Limites du contrôle :
 
 - lecture par motifs sur le texte, commentaires masqués, et non par arbre syntaxique : le test protège contre l'oubli, pas contre un contournement volontaire ;
-- seuls les fichiers `src/**/*.ts` sont lus : le motif de `tests/architecture/source-files.ts` doit être élargi (`.tsx`) avant de créer `src/app/` ;
+- seuls les fichiers `.ts` et `.tsx` de `src/` sont lus (motif de `tests/architecture/source-files.ts`) : un `.mts`, `.cts` ou `.js` n'est pas lu ; le JSX est lu comme du texte : une apostrophe dans un texte JSX masque la fin de sa ligne (limite connue, test dédié dans `tests/architecture/clock-usage.test.ts`) ;
 - les cycles d'imports ne sont pas contrôlés ;
 - `import type` compte comme un import : une dépendance de type est soumise aux mêmes règles ;
 - les spécificateurs commençant par `#` ou `/` sont traités comme des paquets externes.
