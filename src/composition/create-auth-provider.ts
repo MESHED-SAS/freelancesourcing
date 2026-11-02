@@ -18,6 +18,15 @@ export interface AuthProviderConfig {
 }
 
 export function createAuthProvider(config: AuthProviderConfig): AuthProvider {
+  assertPersonasAdapterAllowed(config);
+  return new PersonaAuthProvider();
+}
+
+// Garde commune à createAuthProvider, listDemoPersonas et resolveDemoPersonaToken : lève une erreur
+// sauf si adapterAuth vaut « personas » dans un environnement qui autorise les composants simulés.
+// Ordre des contrôles : valeur absente, puis environnement (pour « personas »), puis valeur inconnue.
+// Non exportée par index.ts : réservée à la composition.
+export function assertPersonasAdapterAllowed(config: AuthProviderConfig): void {
   const adapter = config.adapterAuth;
   if (adapter === undefined) {
     throw new Error(
@@ -30,7 +39,7 @@ export function createAuthProvider(config: AuthProviderConfig): AuthProvider {
         "Configuration refusée : l'adaptateur d'authentification « personas » est simulé, et l'environnement ne l'autorise pas (environnements autorisés : development, staging).",
       );
     }
-    return new PersonaAuthProvider();
+    return;
   }
   throw new Error(`Valeur inconnue pour adapterAuth : « ${adapter} » (valeur acceptée : « personas »).`);
 }
