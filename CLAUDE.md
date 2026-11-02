@@ -30,7 +30,7 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 | `src/domain/` | Règles métier et contrats P1 à P11 | Rien d'autre que lui-même ; aucun paquet externe |
 | `src/use-cases/` | Cas d'usage : orchestration des règles et des contrats (par exemple « postuler à une mission ») | `src/domain/` et lui-même ; aucun paquet externe |
 | `src/adapters/` | Adaptateurs simulés, puis réels, qui implémentent les contrats ; le choix entre eux se fait dans `src/composition/` | `src/domain/`, lui-même et la bibliothèque du service concerné |
-| `src/app/` | Interface web. **Réservé** : créé seulement si Next.js est retenu | `src/use-cases/`, `src/composition/` et lui-même ; paquets externes autorisés |
+| `src/app/` | Interface web (Next.js, retenu le 20/10/2026 ; dossier créé par l'US-02c) | `src/use-cases/`, `src/composition/` et lui-même ; paquets externes autorisés |
 | `src/composition/` | Racine de composition : assemble les adaptateurs selon la configuration et les fournit aux cas d'usage | `src/domain/`, `src/use-cases/`, `src/adapters/` et lui-même ; aucun paquet externe |
 
 - **`src/use-cases/` ne dépend que de `src/domain/` et de lui-même** : jamais d'un adaptateur ni d'un paquet externe.

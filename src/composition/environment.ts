@@ -4,9 +4,12 @@
 // Toute autre valeur, y compris une valeur incorrecte qui contournerait le typage, est refusée.
 // Ce module ne lit ni process ni l'environnement : l'environnement est reçu en paramètre.
 // La règle « variable absente = production » et la validation du texte brut de APP_ENV appartiennent
-// à loadConfig (US-02c, pas encore écrit).
+// à loadConfig (src/composition/load-config.ts), qui reprend la liste APP_ENVIRONMENTS ci-dessous.
 
-export type AppEnvironment = "development" | "staging" | "production";
+// Liste unique des environnements d'exécution : le type AppEnvironment en est tiré.
+export const APP_ENVIRONMENTS = ["development", "staging", "production"] as const;
+
+export type AppEnvironment = (typeof APP_ENVIRONMENTS)[number];
 
 const MOCK_ALLOWED_ENVIRONMENTS: readonly string[] = ["development", "staging"];
 

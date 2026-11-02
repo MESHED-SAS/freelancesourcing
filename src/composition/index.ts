@@ -15,3 +15,6 @@ export { createAuditLog, type AuditLogConfig } from "./create-audit-log.js";
 // Environnement d'exécution et garde des composants simulés (P1 horloge, P2 authentification,
 // P10 journal d'audit).
 export { isMockAllowed, type AppEnvironment } from "./environment.js";
+
+// Traduction des variables d'environnement en configuration (US-02c) : APP_ENV absent = production.
+export { loadConfig, type AppConfig } from "./load-config.js";

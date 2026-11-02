@@ -48,12 +48,12 @@ Le code est rangé en cinq couches, chacune dans son dossier :
 | `src/domain/` | Domaine | Règles métier (échéances en jours ouvrés, consentement, notation…) et contrats P1 à P11 | Rien d'autre que lui-même ; aucun paquet externe |
 | `src/use-cases/` | Cas d'usage | Orchestration des règles et des contrats pour une action de l'utilisateur, par exemple « postuler à une mission » : vérifier le consentement, enregistrer, journaliser | `src/domain/` et lui-même ; aucun paquet externe |
 | `src/adapters/` | Adaptateurs | Implémentations simulées, puis réelles, des contrats ; le choix entre elles se fait dans `src/composition/` | `src/domain/`, lui-même et la bibliothèque du service concerné |
-| `src/app/` | Interface web | **Réservé** : ce dossier n'est créé que si Next.js est retenu | `src/use-cases/`, `src/composition/` et lui-même ; paquets externes autorisés |
+| `src/app/` | Interface web | Next.js, retenu le 20/10/2026 ; dossier créé par l'US-02c | `src/use-cases/`, `src/composition/` et lui-même ; paquets externes autorisés |
 | `src/composition/` | Racine de composition | Assemble les adaptateurs selon la configuration et les fournit aux cas d'usage | `src/domain/`, `src/use-cases/`, `src/adapters/` et lui-même ; aucun paquet externe |
 
 Les règles de dépendance entre couches sont détaillées dans le tableau « Règles de dépendance par couche » ci-dessous. Les cas d'usage manipulent les contrats, jamais un adaptateur précis ; l'interface n'appelle jamais directement le domaine ni un adaptateur, ce qui maintient les contrôles d'accès côté serveur, dans les cas d'usage.
 
-L'assemblage des adaptateurs selon la configuration (la « racine de composition » : choisir le mock ou le réel pour chaque contrat et les fournir aux cas d'usage) se fait en **un point d'entrée unique**, placé dans `src/composition/` (décision de l'US-01). Les fonctions de `src/composition/` reçoivent leur configuration en paramètre et ne lisent pas l'environnement ; la lecture des variables d'environnement sera faite par `loadConfig(process.env)` (US-02c, pas encore écrit).
+L'assemblage des adaptateurs selon la configuration (la « racine de composition » : choisir le mock ou le réel pour chaque contrat et les fournir aux cas d'usage) se fait en **un point d'entrée unique**, placé dans `src/composition/` (décision de l'US-01). Les fonctions de `src/composition/` reçoivent leur configuration en paramètre et ne lisent pas l'environnement ; les variables d'environnement sont traduites en configuration par `loadConfig(env)` (`src/composition/load-config.ts`, US-02c), qui reçoit l'objet des variables en paramètre. `loadConfig` n'est pas encore appelée par l'application : à ce jour, aucune variable d'environnement n'est lue.
 
 **Règles de dépendance par couche**, contrôlées par `tests/architecture/layer-dependencies.test.ts` :
 
@@ -90,9 +90,9 @@ Pourquoi `use-cases` et non `application` : dans Next.js, le dossier `app/` dés
 - La garde est une **liste blanche** (`isMockAllowed`) : comparaison exacte, casse comprise, sans normalisation. Toute autre valeur, y compris une valeur incorrecte qui contournerait le typage, est refusée.
 - **L'horloge « system » est autorisée dans tous les environnements.**
 - `createClock`, `createAuthProvider` et `createAuditLog` reçoivent l'environnement en paramètre (champ `environment`, obligatoire, sans valeur par défaut) et lèvent une erreur « Configuration refusée » si un composant simulé est demandé hors `development` et `staging`. Pour « personas » et « in-memory », la garde passe après le contrôle de valeur absente ; pour « simulated », avant le contrôle de `simulatedStart`.
-- **Production par défaut :** la lecture de `APP_ENV` sera faite par `loadConfig(process.env)` (US-02c, pas encore écrit). Variable absente : `production` ; valeur inconnue : erreur. D'ici là, aucune variable d'environnement n'est lue.
+- **Production par défaut :** `APP_ENV` est traduite par `loadConfig(env)` (`src/composition/load-config.ts`, US-02c). Variable absente : `production` ; toute autre valeur que `development`, `staging` ou `production` (chaîne vide, casse différente ou espaces compris) : erreur « Valeur inconnue pour APP_ENV », sans repli. `ADAPTER_CLOCK`, `ADAPTER_AUTH` et `ADAPTER_AUDIT_LOG` sont transmises sans validation : elle reste dans les fabriques. `loadConfig` n'est pas encore appelée par l'application : à ce jour, aucune variable d'environnement n'est lue.
 
-Tests : `tests/composition/environment.test.ts`, `tests/composition/create-auth-provider.test.ts` et `tests/composition/create-clock.test.ts`.
+Tests : `tests/composition/environment.test.ts`, `tests/composition/create-auth-provider.test.ts`, `tests/composition/create-clock.test.ts`, `tests/composition/create-audit-log.test.ts` et `tests/composition/load-config.test.ts`.
 
 ## 3. Les contrats et leurs simulations
 
