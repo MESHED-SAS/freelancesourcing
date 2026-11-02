@@ -1,0 +1,35 @@
+/*
+ * Jetons de design (US-02c, CA13) : seul fichier de src/app qui écrit des couleurs.
+ * Les pages et globals.css n'utilisent que var(--…) (contrôle CT6 de tests/app/theme-tokens.test.ts).
+ * Thème clair seul pour l'instant : le thème sombre redéfinira ces variables dans un second bloc.
+ * Contrastes WCAG 2.x vérifiés par le même test (CT2 texte >= 4,5:1 ; CT3 contours et focus >= 3:1).
+ * --color-border est décoratif (séparateurs non porteurs de sens) : il n'a pas de seuil.
+ */
+:root {
+  --color-bg: #FFFFFF;
+  --color-bg-page: #F7F8FA;
+  --color-text: #1B2430;
+  --color-text-muted: #5B6573;
+  --color-accent: #0F6B5E;
+  --color-on-accent: #FFFFFF;
+  --color-border: #D0D5DD;
+  --color-border-control: #7C8696;
+  --color-danger: #B42318;
+  --color-danger-bg: #FEF3F2;
+  --color-demo-text: #7A4B00;
+  --color-demo-bg: #FFF4D6;
+  --color-focus: #0F6B5E;
+  --color-focus-on-dark: #FFFFFF;
+  --color-header-bg: #111827;
+  --color-header-text: #FFFFFF;
+
+  --font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-size-base: 16px;
+  --radius: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+}

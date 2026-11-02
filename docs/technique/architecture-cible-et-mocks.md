@@ -86,6 +86,18 @@ Limites du contrôle :
 
 **Types du noyau :** `src/domain/` et `src/use-cases/` sont aussi compilés sans types DOM ni Node (`tsconfig.core.json`, lancé par `npm test`) ; limite : `types: []` coupe seulement le chargement automatique des `@types`, c'est le test des couches qui empêche les imports qui les rouvriraient.
 
+**Couleurs de l'interface (US-02c, CA13 et CA14) :** seul `src/app/theme/tokens.css` écrit des couleurs, comme propriétés personnalisées (`--color-…`, en `#RRGGBB`) d'un unique bloc `:root` ; le reste de `src/app/` n'utilise que `var(--…)`. Thème clair seul pour l'instant : le thème sombre redéfinira les mêmes variables. Contrôles, tous dans `tests/app/theme-tokens.test.ts` :
+
+- **jetons (CT1, CT4)** : le jeu de jetons est exactement celui de la spec (couleurs, police, taille, rayon, espacements) ; chaque `--color-*` est une couleur `#RRGGBB` ; un jeton déclaré deux fois, dans un autre bloc (`@media` compris) ou hors de tout bloc est refusé ;
+- **contrastes (CT2, CT3)** : formule WCAG 2.x (luminance relative, rapport (L1 + 0,05) / (L2 + 0,05), sans arrondi), calculée par `tests/app/contrast.ts` ; paires texte et fond ≥ 4,5:1 ; contours de contrôles et focus ≥ 3:1 sur `--color-bg` et `--color-bg-page`, et `--color-focus-on-dark` sur `--color-header-bg`. `--color-border` est décoratif (séparateurs non porteurs de sens) et n'a pas de seuil ;
+- **couleurs en dur (CT6)** : dans `src/app/**/*.{ts,tsx,css}` sauf `tokens.css`, hors commentaires, sont refusés les `#hex` de 3, 4, 6 ou 8 chiffres, les fonctions `rgb(`, `rgba(`, `hsl(`, `hsla(`, `hwb(`, `lab(`, `lch(`, `oklab(`, `oklch(`, `color-mix(`, et un nom de couleur usuel dans une valeur de style (déclaration CSS, ou chaîne affectée en TS/TSX à une propriété de couleur : `color`, `background`, `border…`, `outline`, `fill`, `stroke`, `boxShadow`, `textShadow`, `…Color`). `currentColor`, `inherit` et `transparent` sont admis ;
+- **ordre des feuilles (CT7)** : `layout.tsx` importe `./theme/tokens.css` puis `./globals.css`, et aucune autre feuille ;
+- **focus visible (CT8)** : `globals.css` définit une règle `:focus-visible` dont le contour utilise `var(--color-focus)`, et ne contient ni `outline: none` ni `outline: 0`.
+
+Le test lit les fichiers par `import.meta.glob` avec `?raw`. Vitest vide le contenu des `.css`, même lus avec `?raw`, sauf s'ils correspondent à `css.include` : `vitest.config.ts` fixe donc `css: { include: [/\.css\?raw$/] }`, et un témoin positif vérifie que le CSS n'arrive pas vide.
+
+Limites du contrôle : le calcul porte sur les paires de jetons, pas sur le rendu réel (zoom, navigation au clavier : vérification manuelle) ; CT6 ne voit pas une couleur passée par une variable, un nom construit, une couleur système (`Canvas`…), un nom absent de la liste, une propriété absente de la liste, du CSS dans un gabarit ou une balise `<style>`, un `#hex` de 5 ou 7 chiffres, ni un texte JSX placé après un `//` ; il refuse à tort un identifiant fait de chiffres hexadécimaux (`#cafe`, champ privé `#add`) et un nom de couleur dans un sélecteur imbriqué ou une chaîne CSS ; CT7 ne contrôle que `layout.tsx` ; CT8 ne détecte ni `outline: 0px`, ni `outline-style: none`, ni `outline: transparent` ; l'analyse de `tokens.css` ne gère pas un `;`, `{` ou `}` placé dans une chaîne CSS.
+
 Pourquoi `use-cases` et non `application` : dans Next.js, le dossier `app/` désigne le routeur de l'interface web. Le nom `use-cases` évite de confondre les deux.
 
 ### 2.2 Environnement d'exécution et composants simulés

@@ -1,0 +1,42 @@
+/*
+ * Styles de base (US-02c). Aucune couleur écrite en dur : uniquement les jetons de
+ * theme/tokens.css, chargé avant ce fichier par layout.tsx (contrôles CT6 et CT7).
+ * Le contour de focus n'est jamais supprimé (CT8, CA14).
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg-page);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

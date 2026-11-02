@@ -58,7 +58,8 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 - `Date.now(` et `new Date` (avec ou sans parenthèses) dans tout `src/`, sauf `src/adapters/clock/system-clock.ts` (adaptateur système de P1) ;
 - les identifiants `Date`, `performance`, `process` et `Temporal` dans `src/domain/` et `src/use-cases/` (commentaires et chaînes exclus) ;
 - l'identifiant `process`, et toute chaîne valant exactement `"process"` ou `"node:process"` (import compris), dans tout `src/`, sauf `src/app/runtime-services.ts`, seul fichier qui lit l'environnement du processus (AR5) ;
-- importer un SDK externe dans `src/domain/`, `src/use-cases/` ou `src/composition/`.
+- importer un SDK externe dans `src/domain/`, `src/use-cases/` ou `src/composition/` ;
+- écrire une couleur en dur dans `src/app/` (`#hex`, `rgb(`, `hsl(` et fonctions voisines, nom de couleur dans une valeur de style) : les couleurs ne passent que par les jetons de `src/app/theme/tokens.css` (contrôle CT6 de `tests/app/theme-tokens.test.ts` ; règle et limites : `docs/technique/architecture-cible-et-mocks.md`, §2.1).
 
 Les trois premières interdictions sont contrôlées par `tests/architecture/clock-usage.test.ts` (limites documentées en tête du fichier : chaîne construite, nom calculé).
 Le noyau (`src/domain/`, `src/use-cases/`) est aussi compilé sans types DOM ni Node (`tsconfig.core.json`, lancé par `npm test`) ; limite : `types: []` coupe seulement le chargement automatique des `@types`, le test des couches empêche les imports qui les rouvriraient.
