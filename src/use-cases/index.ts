@@ -2,6 +2,10 @@
 // Dépend uniquement de src/domain/ ; jamais d'un adaptateur précis ni d'un SDK externe.
 // Voir CLAUDE.md §2 et docs/technique/architecture-cible-et-mocks.md §2.1.
 
+// Types du domaine réexportés pour l'interface (US-02c) : src/app/ ne peut pas importer le domaine,
+// même en import type.
+export type { AuthenticatedUser, Role } from "../domain/index.js";
+
 // US-02 : authentifier une session (contrat AuthProvider, refus des adresses jetables).
 export {
   authenticateSession,

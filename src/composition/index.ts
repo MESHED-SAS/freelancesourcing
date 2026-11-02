@@ -8,6 +8,9 @@ export { createClock, type ClockConfig } from "./create-clock.js";
 // P2 AuthProvider : personas fictifs (choix explicite obligatoire) ; domaines jetables (US-02, critère 4).
 export { createAuthProvider, type AuthProviderConfig } from "./create-auth-provider.js";
 export { DISPOSABLE_DOMAINS } from "./disposable-domains.js";
+// Personas de démonstration (US-02c) : liste sans jeton ni adresse, et key → jeton côté serveur ;
+// même garde que createAuthProvider.
+export { type DemoPersonaChoice, listDemoPersonas, resolveDemoPersonaToken } from "./list-demo-personas.js";
 
 // P10 AuditLog : journal en mémoire (choix explicite obligatoire).
 export { createAuditLog, type AuditLogConfig } from "./create-audit-log.js";
@@ -15,3 +18,6 @@ export { createAuditLog, type AuditLogConfig } from "./create-audit-log.js";
 // Environnement d'exécution et garde des composants simulés (P1 horloge, P2 authentification,
 // P10 journal d'audit).
 export { isMockAllowed, type AppEnvironment } from "./environment.js";
+
+// Traduction des variables d'environnement en configuration (US-02c) : APP_ENV absent = production.
+export { loadConfig, type AppConfig } from "./load-config.js";

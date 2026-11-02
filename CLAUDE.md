@@ -30,11 +30,14 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 | `src/domain/` | Règles métier et contrats P1 à P11 | Rien d'autre que lui-même ; aucun paquet externe |
 | `src/use-cases/` | Cas d'usage : orchestration des règles et des contrats (par exemple « postuler à une mission ») | `src/domain/` et lui-même ; aucun paquet externe |
 | `src/adapters/` | Adaptateurs simulés, puis réels, qui implémentent les contrats ; le choix entre eux se fait dans `src/composition/` | `src/domain/`, lui-même et la bibliothèque du service concerné |
-| `src/app/` | Interface web. **Réservé** : créé seulement si Next.js est retenu | `src/use-cases/`, `src/composition/` et lui-même ; paquets externes autorisés |
+| `src/app/` | Interface web (Next.js, retenu le 20/10/2026 ; dossier créé par l'US-02c) | `src/use-cases/`, `src/composition/` et lui-même ; paquets externes autorisés |
 | `src/composition/` | Racine de composition : assemble les adaptateurs selon la configuration et les fournit aux cas d'usage | `src/domain/`, `src/use-cases/`, `src/adapters/` et lui-même ; aucun paquet externe |
 
 - **`src/use-cases/` ne dépend que de `src/domain/` et de lui-même** : jamais d'un adaptateur ni d'un paquet externe.
 - **L'interface n'appelle que les cas d'usage** (`src/use-cases/`) et reçoit ses dépendances de `src/composition/` ; jamais directement le domaine ni les adaptateurs.
+- **Point de passage unique des services (décision 28).** Hors de `src/app/services.ts`, aucun fichier de `src/app/` n'importe de valeur depuis `src/composition/` (ni `index.js`, ni un autre fichier) : seuls `import type` et `export type` sont admis, et `import { type X }` compte comme un import de valeur. `src/app/services.ts` n'est importé, même en `import type`, que par `src/app/runtime-services.ts` (et par les tests). Contrôle : `tests/architecture/layer-dependencies.test.ts` (AR4).
+- **Jamais de service créé à l'import.** Les services ne s'obtiennent que par `getRuntimeServices()` (`src/app/runtime-services.ts`, qui appelle `connection()` avant de lire l'environnement), dans un rendu, une action ou un gestionnaire de route, jamais au niveau d'un module : le build figerait la configuration ou échouerait. Contrôle partiel : `tests/app/services.test.ts` (SV1) vérifie que l'import de `services.ts` ne crée rien ; un appel au niveau d'une page n'est pas détecté automatiquement.
+- **Imports de Next.js avec extension `.js`** (`next/server.js`, `next/navigation.js`) : sous `moduleResolution: nodenext`, l'écriture sans extension est refusée par `tsc` (TS2307).
 - Règles détaillées et limites du contrôle : `docs/technique/architecture-cible-et-mocks.md`, §2.1. Contrôles automatiques : `tests/architecture/layer-dependencies.test.ts` (dépendances entre couches) et `tests/architecture/clock-usage.test.ts` (horloge).
 
 | Contrat | Rôle | Adaptateur actuel |
@@ -54,9 +57,10 @@ Plateforme **gratuite et transparente** de mise en relation entre **chefs de pro
 **Interdit :**
 - `Date.now(` et `new Date` (avec ou sans parenthèses) dans tout `src/`, sauf `src/adapters/clock/system-clock.ts` (adaptateur système de P1) ;
 - les identifiants `Date`, `performance`, `process` et `Temporal` dans `src/domain/` et `src/use-cases/` (commentaires et chaînes exclus) ;
+- l'identifiant `process`, et toute chaîne valant exactement `"process"` ou `"node:process"` (import compris), dans tout `src/`, sauf `src/app/runtime-services.ts`, seul fichier qui lit l'environnement du processus (AR5) ;
 - importer un SDK externe dans `src/domain/`, `src/use-cases/` ou `src/composition/`.
 
-Les deux premières interdictions sont contrôlées par `tests/architecture/clock-usage.test.ts`.
+Les trois premières interdictions sont contrôlées par `tests/architecture/clock-usage.test.ts` (limites documentées en tête du fichier : chaîne construite, nom calculé).
 Le noyau (`src/domain/`, `src/use-cases/`) est aussi compilé sans types DOM ni Node (`tsconfig.core.json`, lancé par `npm test`) ; limite : `types: []` coupe seulement le chargement automatique des `@types`, le test des couches empêche les imports qui les rouvriraient.
 
 **Cible pressentie** (non encore branchée) : Supabase et PostgreSQL (avec Row Level Security), Next.js, hébergeur français, service d'emails européen. Voir `docs/technique/architecture-cible-et-mocks.md`.

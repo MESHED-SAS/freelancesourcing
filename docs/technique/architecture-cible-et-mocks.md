@@ -48,12 +48,12 @@ Le code est rangé en cinq couches, chacune dans son dossier :
 | `src/domain/` | Domaine | Règles métier (échéances en jours ouvrés, consentement, notation…) et contrats P1 à P11 | Rien d'autre que lui-même ; aucun paquet externe |
 | `src/use-cases/` | Cas d'usage | Orchestration des règles et des contrats pour une action de l'utilisateur, par exemple « postuler à une mission » : vérifier le consentement, enregistrer, journaliser | `src/domain/` et lui-même ; aucun paquet externe |
 | `src/adapters/` | Adaptateurs | Implémentations simulées, puis réelles, des contrats ; le choix entre elles se fait dans `src/composition/` | `src/domain/`, lui-même et la bibliothèque du service concerné |
-| `src/app/` | Interface web | **Réservé** : ce dossier n'est créé que si Next.js est retenu | `src/use-cases/`, `src/composition/` et lui-même ; paquets externes autorisés |
+| `src/app/` | Interface web | Next.js, retenu le 20/10/2026 ; dossier créé par l'US-02c | `src/use-cases/`, `src/composition/` et lui-même ; paquets externes autorisés |
 | `src/composition/` | Racine de composition | Assemble les adaptateurs selon la configuration et les fournit aux cas d'usage | `src/domain/`, `src/use-cases/`, `src/adapters/` et lui-même ; aucun paquet externe |
 
 Les règles de dépendance entre couches sont détaillées dans le tableau « Règles de dépendance par couche » ci-dessous. Les cas d'usage manipulent les contrats, jamais un adaptateur précis ; l'interface n'appelle jamais directement le domaine ni un adaptateur, ce qui maintient les contrôles d'accès côté serveur, dans les cas d'usage.
 
-L'assemblage des adaptateurs selon la configuration (la « racine de composition » : choisir le mock ou le réel pour chaque contrat et les fournir aux cas d'usage) se fait en **un point d'entrée unique**, placé dans `src/composition/` (décision de l'US-01). Les fonctions de `src/composition/` reçoivent leur configuration en paramètre et ne lisent pas l'environnement ; la lecture des variables d'environnement sera faite par `loadConfig(process.env)` (US-02c, pas encore écrit).
+L'assemblage des adaptateurs selon la configuration (la « racine de composition » : choisir le mock ou le réel pour chaque contrat et les fournir aux cas d'usage) se fait en **un point d'entrée unique**, placé dans `src/composition/` (décision de l'US-01). Les fonctions de `src/composition/` reçoivent leur configuration en paramètre et ne lisent pas l'environnement ; les variables d'environnement sont traduites en configuration par `loadConfig(env)` (`src/composition/load-config.ts`, US-02c), qui reçoit l'objet des variables en paramètre. `loadConfig` est appelée par `getServices` (`src/app/services.ts`), et l'environnement du processus est lu par `src/app/runtime-services.ts` ; aucune page ne l'appelle encore (PR 3).
 
 **Règles de dépendance par couche**, contrôlées par `tests/architecture/layer-dependencies.test.ts` :
 
@@ -67,15 +67,22 @@ L'assemblage des adaptateurs selon la configuration (la « racine de composition
 
 Tout fichier de `src/` appartient à l'une de ces cinq couches. `require(` est refusé dans tout `src/`, ainsi que tout `import()` dont l'argument n'est pas une chaîne littérale.
 
+**Point de passage unique des services (AR4, décision 28)**, contrôlé par le même test :
+
+- `src/app/services.ts` (création et mémorisation des services) n'est importé, même en `import type`, que par `src/app/runtime-services.ts` (et par les tests) ;
+- hors de `src/app/services.ts`, aucun fichier de `src/app/` n'importe de valeur depuis `src/composition/` : seuls `import type` et `export type` sont admis. `import { type X }`, un import sans liaison et `import()` comptent comme des imports de valeur (sous `verbatimModuleSyntax`, `import { type X }` charge encore le module). Une page ne peut donc pas appeler `resolveDemoPersonaToken` avec une configuration fabriquée à la main.
+
 Limites du contrôle :
 
 - lecture par motifs sur le texte, commentaires masqués, et non par arbre syntaxique : le test protège contre l'oubli, pas contre un contournement volontaire ;
 - seuls les fichiers `.ts` et `.tsx` de `src/` sont lus (motif de `tests/architecture/source-files.ts`) : un `.mts`, `.cts` ou `.js` n'est pas lu ; le JSX est lu comme du texte : une apostrophe dans un texte JSX masque la fin de sa ligne (limite connue, test dédié dans `tests/architecture/clock-usage.test.ts`) ;
 - les cycles d'imports ne sont pas contrôlés ;
-- `import type` compte comme un import : une dépendance de type est soumise aux mêmes règles ;
+- `import type` compte comme un import : une dépendance de type est soumise aux mêmes règles (seule la règle AR4 distingue les imports de type seul, `import type` et `export type`) ;
 - les spécificateurs commençant par `#` ou `/` sont traités comme des paquets externes.
 
 **Horloge :** `Date.now(` et `new Date` (avec ou sans parenthèses) sont interdits dans tout `src/`, sauf `src/adapters/clock/system-clock.ts` (adaptateur système de P1). Les identifiants `Date`, `performance`, `process` et `Temporal` sont interdits dans `src/domain/` et `src/use-cases/` (commentaires et chaînes exclus). Contrôle : `tests/architecture/clock-usage.test.ts`.
+
+**Environnement du processus (AR5) :** l'identifiant `process`, et toute chaîne valant exactement `"process"` ou `"node:process"` (imports, `globalThis["process"]`, `Reflect.get(globalThis, "process")` compris), sont interdits dans tout `src/`, sauf `src/app/runtime-services.ts`, seul fichier qui lit l'environnement. Contrôle : `tests/architecture/clock-usage.test.ts`. Limites : une chaîne construite (`"pro" + "cess"`) ou un nom calculé (`globalThis[name]`) ne sont pas détectés ; à l'inverse, `"process"` écrit dans une autre chaîne et le mot anglais « process » dans un texte JSX sont refusés.
 
 **Types du noyau :** `src/domain/` et `src/use-cases/` sont aussi compilés sans types DOM ni Node (`tsconfig.core.json`, lancé par `npm test`) ; limite : `types: []` coupe seulement le chargement automatique des `@types`, c'est le test des couches qui empêche les imports qui les rouvriraient.
 
@@ -90,16 +97,16 @@ Pourquoi `use-cases` et non `application` : dans Next.js, le dossier `app/` dés
 - La garde est une **liste blanche** (`isMockAllowed`) : comparaison exacte, casse comprise, sans normalisation. Toute autre valeur, y compris une valeur incorrecte qui contournerait le typage, est refusée.
 - **L'horloge « system » est autorisée dans tous les environnements.**
 - `createClock`, `createAuthProvider` et `createAuditLog` reçoivent l'environnement en paramètre (champ `environment`, obligatoire, sans valeur par défaut) et lèvent une erreur « Configuration refusée » si un composant simulé est demandé hors `development` et `staging`. Pour « personas » et « in-memory », la garde passe après le contrôle de valeur absente ; pour « simulated », avant le contrôle de `simulatedStart`.
-- **Production par défaut :** la lecture de `APP_ENV` sera faite par `loadConfig(process.env)` (US-02c, pas encore écrit). Variable absente : `production` ; valeur inconnue : erreur. D'ici là, aucune variable d'environnement n'est lue.
+- **Production par défaut :** `APP_ENV` est traduite par `loadConfig(env)` (`src/composition/load-config.ts`, US-02c). Variable absente : `production` ; toute autre valeur que `development`, `staging` ou `production` (chaîne vide, casse différente ou espaces compris) : erreur « Valeur inconnue pour APP_ENV », sans repli. `ADAPTER_CLOCK`, `ADAPTER_AUTH` et `ADAPTER_AUDIT_LOG` sont transmises sans validation : elle reste dans les fabriques. `loadConfig` est appelée par `getServices` (`src/app/services.ts`), et l'environnement du processus est lu par `src/app/runtime-services.ts` ; aucune page ne l'appelle encore (PR 3).
 
-Tests : `tests/composition/environment.test.ts`, `tests/composition/create-auth-provider.test.ts` et `tests/composition/create-clock.test.ts`.
+Tests : `tests/composition/environment.test.ts`, `tests/composition/create-auth-provider.test.ts`, `tests/composition/create-clock.test.ts`, `tests/composition/create-audit-log.test.ts` et `tests/composition/load-config.test.ts`.
 
 ## 3. Les contrats et leurs simulations
 
 | # | Contrat (besoin métier) | Simulation au démarrage | Cible pressentie | Condition de bascule | Fonctions du MVP concernées |
 |---|---|---|---|---|---|
 | P1 | **Horloge** : quelle est la date et l'heure ? Quels sont les jours ouvrés ? | **Horloge simulée** que l'on peut avancer à volonté (« avancer de 15 jours ouvrés »), avec un calendrier des jours fériés français ; autorisée en development et staging uniquement (§2.2). L'horloge système est déjà disponible et choisie par défaut | Horloge système et calendrier des jours fériés (liste officielle ou bibliothèque) | Dès la mise en production | E3.4, E4.4, E4.5, règles R1 à R3 |
-| P2 | **Authentification** : qui est connecté, et avec quel rôle ? | Écran de connexion fictif : choisir parmi six personas (Sophie, Karim, Julie et Marc, freelances ; un recruteur d'Alpha Conseil ; un administrateur). **Mock livré** (US-02a) : `PersonaAuthProvider` (`src/adapters/auth/`), adresses fictives en domaines réservés, jetons devinables. `createAuthProvider` (`src/composition/`) reçoit sa configuration en paramètre et n'a **aucune valeur par défaut** : le mock exige le choix explicite « personas ». Il est refusé hors development et staging (§2.2). La lecture de `ADAPTER_AUTH` dans l'environnement n'est pas encore branchée, et l'écran de connexion viendra avec l'US-02c. Adaptateur réel à venir | Supabase Auth avec LinkedIn, Google et Microsoft | Applications de connexion créées chez LinkedIn, Google et Microsoft | E1.1 |
+| P2 | **Authentification** : qui est connecté, et avec quel rôle ? | Écran de connexion fictif : choisir parmi six personas (Sophie, Karim, Julie et Marc, freelances ; un recruteur d'Alpha Conseil ; un administrateur). **Mock livré** (US-02a) : `PersonaAuthProvider` (`src/adapters/auth/`), adresses fictives en domaines réservés, jetons devinables. `createAuthProvider` (`src/composition/`) reçoit sa configuration en paramètre et n'a **aucune valeur par défaut** : le mock exige le choix explicite « personas ». Il est refusé hors development et staging (§2.2). Pour l'écran de connexion, `listDemoPersonas` (`src/composition/list-demo-personas.ts`) renvoie la liste `{ key, label, role }`, sans jeton ni adresse, et `resolveDemoPersonaToken` traduit une key en jeton côté serveur (key inconnue : `null`) ; les deux passent par la même garde que `createAuthProvider`, avant toute recherche. La lecture de `ADAPTER_AUTH` dans l'environnement n'est pas encore branchée, et l'écran de connexion viendra avec l'US-02c. Adaptateur réel à venir | Supabase Auth avec LinkedIn, Google et Microsoft | Applications de connexion créées chez LinkedIn, Google et Microsoft | E1.1 |
 | P3 | **Stockage des données** : missions, profils, candidatures, notes, consentements | Stockage en mémoire, avec un jeu de données de démonstration | PostgreSQL (Supabase), avec des **règles d'accès dans la base** (Row Level Security) | Choix de la région d'hébergement européenne | Toutes |
 | P4 | **Contrôle des accès (consentement)** : ce recruteur peut-il voir ce profil ? | **Règles écrites et testées dans le code métier** | Les mêmes règles **dupliquées dans la base** (Row Level Security), en double protection | En même temps que P3 | E2.1, E2.2, E2.5, E2.7 |
 | P5 | **Envoi d'emails** : relances, notifications, mises en relation | **Boîte de réception de test** consultable dans l'application ; aucun email réel n'est envoyé | Service d'emails européen (à choisir) | Choix du fournisseur et du nom de domaine | E10.2, E6.1 |

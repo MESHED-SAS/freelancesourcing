@@ -7,6 +7,8 @@
 // composition → domain, use-cases, adapters, composition ; aucun paquet externe.
 // Tout fichier de src/ appartient à l'une de ces cinq couches. Un import() dont l'argument n'est
 // pas une chaîne littérale est refusé ; require( est refusé partout.
+// AR4 (décision 28) : src/app/services.ts n'est importé que par src/app/runtime-services.ts ; hors
+// de services.ts, src/app/ n'importe de la composition que des types (import type, export type).
 // Limite assumée : lecture par motifs sur le texte (commentaires masqués), pas par arbre
 // syntaxique. Le test protège contre l'oubli, pas contre un contournement volontaire.
 // Limites connues :
@@ -19,6 +21,9 @@
 // - une chaîne contenant « from" » suivie d'un vrai import sur la même ligne peut fausser la
 //   lecture du chemin ;
 // - import type compte comme une dépendance (choix strict) ; les cycles ne sont pas vérifiés ;
+// - AR4 : seuls import type … et export type … sont des imports de type seul ; import { type X }
+//   compte comme un import de valeur (il charge le module sous verbatimModuleSyntax) ;
+// - AR4 : un fichier hors de src/app/ n'est visé que par la règle (a) ;
 // - la couche visée se déduit du chemin, que le fichier existe ou non (tsc signale l'absence).
 import { describe, expect, it } from "vitest";
 import { maskComments, maskNonCode, type SourceFile, sourceFiles } from "./source-files.js";
@@ -40,10 +45,19 @@ interface ImportRef {
   // module : chemin lisible ; non-literal : import() sans chaîne littérale ; require : appel à require(.
   readonly kind: "module" | "non-literal" | "require";
   readonly specifier: string;
+  // Vrai seulement pour import type … from et export type … from (effacés à la compilation).
+  // import { type X } reste un import de valeur : sous verbatimModuleSyntax, TypeScript garde
+  // import {} from "x", qui charge le module. Les imports sans liaison et import() sont des valeurs.
+  readonly typeOnly: boolean;
 }
 
 // import … from "x" et export … from "x", y compris sur plusieurs lignes, avec ou sans « type ».
-const STATIC_IMPORT = /\b(?:import|export)\b[^;"'`]*?\bfrom\s*(["'])([^"'\n]*)\1/g;
+// Le texte entre le mot-clé et from ne traverse ni point-virgule, ni guillemet, ni un autre mot
+// import ou export : sans cela, un « export type A = string » sans point-virgule s'étendrait à
+// l'import qui le suit, lui donnerait sa ligne et le ferait passer pour un import de type seul.
+const STATIC_IMPORT = /\b(?:import|export)\b(?:(?!\b(?:import|export)\b)[^;"'`])*?\bfrom\s*(["'])([^"'\n]*)\1/g;
+// Début d'un import type ou export type ; « import type from » importe par défaut un nom « type ».
+const TYPE_ONLY_START = /^(?:import|export)\s+type\s+(?!from\b)/;
 // import "x"; (sans liaison)
 const SIDE_EFFECT_IMPORT = /\bimport\s*(["'])([^"'\n]*)\1/g;
 // import("x") ; le groupe 2 est absent si l'argument n'est pas une chaîne littérale seule.
@@ -57,26 +71,32 @@ function readImports(code: string): ImportRef[] {
   const withStrings = maskComments(code);
   const codeOnly = maskNonCode(code);
   const isCode = (index: number): boolean => codeOnly.charAt(index) !== " ";
-  const found: { index: number; kind: ImportRef["kind"]; specifier: string }[] = [];
-  for (const pattern of [STATIC_IMPORT, SIDE_EFFECT_IMPORT]) {
-    for (const m of withStrings.matchAll(pattern)) {
-      if (isCode(m.index)) found.push({ index: m.index, kind: "module", specifier: m[2] ?? "" });
+  const found: { index: number; kind: ImportRef["kind"]; specifier: string; typeOnly: boolean }[] = [];
+  for (const m of withStrings.matchAll(STATIC_IMPORT)) {
+    if (isCode(m.index)) {
+      found.push({ index: m.index, kind: "module", specifier: m[2] ?? "", typeOnly: TYPE_ONLY_START.test(m[0]) });
     }
+  }
+  for (const m of withStrings.matchAll(SIDE_EFFECT_IMPORT)) {
+    if (isCode(m.index)) found.push({ index: m.index, kind: "module", specifier: m[2] ?? "", typeOnly: false });
   }
   for (const m of withStrings.matchAll(DYNAMIC_IMPORT)) {
     if (!isCode(m.index)) continue;
     found.push(
       m[2] === undefined
-        ? { index: m.index, kind: "non-literal", specifier: "" }
-        : { index: m.index, kind: "module", specifier: m[2] },
+        ? { index: m.index, kind: "non-literal", specifier: "", typeOnly: false }
+        : { index: m.index, kind: "module", specifier: m[2], typeOnly: false },
     );
   }
   for (const m of codeOnly.matchAll(REQUIRE_CALL)) {
-    found.push({ index: m.index, kind: "require", specifier: "" });
+    found.push({ index: m.index, kind: "require", specifier: "", typeOnly: false });
   }
-  return found
-    .sort((a, b) => a.index - b.index)
-    .map((f) => ({ line: withStrings.slice(0, f.index).split("\n").length, kind: f.kind, specifier: f.specifier }));
+  return found.sort((a, b) => a.index - b.index).map((f) => ({
+    line: withStrings.slice(0, f.index).split("\n").length,
+    kind: f.kind,
+    specifier: f.specifier,
+    typeOnly: f.typeOnly,
+  }));
 }
 
 function isRelative(specifier: string): boolean {
@@ -135,6 +155,36 @@ function findDependencyViolations(files: readonly SourceFile[]): string[] {
       return problem === null ? [] : [`${file.path}:${ref.line} : ${problem}`];
     });
   });
+}
+
+// AR4 (décision 28) : point de passage unique des services.
+// (a) src/app/services.ts n'est importé, même en import type, que par src/app/runtime-services.ts
+//     (et par les tests, qui ne sont pas lus ici) ;
+// (b) hors de src/app/services.ts, aucun fichier de src/app/ n'importe de valeur depuis
+//     src/composition/ (index.js ou tout autre fichier) : seuls import type et export type sont
+//     admis. Une page ne peut donc pas appeler resolveDemoPersonaToken avec une configuration
+//     fabriquée à la main : la configuration ne vient que de services.ts.
+const SERVICES = "src/app/services.ts";
+const RUNTIME_SERVICES = "src/app/runtime-services.ts";
+
+function findAppBoundaryViolations(files: readonly SourceFile[]): string[] {
+  const known = new Set(files.map((f) => f.path));
+  return files.flatMap((file) =>
+    readImports(file.content).flatMap((ref) => {
+      if (ref.kind !== "module" || !isRelative(ref.specifier)) return [];
+      const target = resolveRelative(file.path, ref.specifier, known);
+      if (target === null) return [];
+      if (target === SERVICES && file.path !== RUNTIME_SERVICES) {
+        return [`${file.path}:${ref.line} : services.ts importé hors de runtime-services.ts`];
+      }
+      if (layerOf(file.path) === "app" && file.path !== SERVICES && layerOf(target) === "composition" && !ref.typeOnly) {
+        return [
+          `${file.path}:${ref.line} : app → composition en valeur (${target}) : seuls import type et export type sont admis hors de services.ts`,
+        ];
+      }
+      return [];
+    }),
+  );
 }
 
 function file(path: string, ...lines: string[]): SourceFile {
@@ -198,15 +248,65 @@ describe("Lecture des imports et calcul de chemin", () => {
       'const i = require("i");',
     ].join("\n");
     expect(readImports(code)).toEqual([
-      { line: 1, kind: "module", specifier: "./a.js" },
-      { line: 2, kind: "module", specifier: "./b.js" },
-      { line: 3, kind: "module", specifier: "./c.js" },
-      { line: 7, kind: "module", specifier: "./e.js" },
-      { line: 8, kind: "module", specifier: "./f.js" },
-      { line: 9, kind: "module", specifier: "./setup.js" },
-      { line: 10, kind: "module", specifier: "./g.js" },
-      { line: 11, kind: "non-literal", specifier: "" },
-      { line: 12, kind: "require", specifier: "" },
+      { line: 1, kind: "module", specifier: "./a.js", typeOnly: false },
+      { line: 2, kind: "module", specifier: "./b.js", typeOnly: true },
+      { line: 3, kind: "module", specifier: "./c.js", typeOnly: false },
+      { line: 7, kind: "module", specifier: "./e.js", typeOnly: true },
+      { line: 8, kind: "module", specifier: "./f.js", typeOnly: false },
+      { line: 9, kind: "module", specifier: "./setup.js", typeOnly: false },
+      { line: 10, kind: "module", specifier: "./g.js", typeOnly: false },
+      { line: 11, kind: "non-literal", specifier: "", typeOnly: false },
+      { line: 12, kind: "require", specifier: "", typeOnly: false },
+    ]);
+  });
+
+  it("type seul : import type et export type ; import { type X }, import type par défaut nommé « type » et les autres formes sont des imports de valeur", () => {
+    const code = [
+      'import type { A } from "./a.js";',
+      'import type * as B from "./b.js";',
+      'import type C from "./c.js";',
+      'export type { D } from "./d.js";',
+      'export type * from "./e.js";',
+      'import { type F } from "./f.js";',
+      'import { type G, h } from "./g.js";',
+      'import type from "./i.js";',
+      'import type, { j } from "./j.js";',
+      "import type {",
+      "  K,",
+      '} from "./k.js";',
+    ].join("\n");
+    expect(readImports(code).map((ref) => [ref.line, ref.typeOnly])).toEqual([
+      [1, true],
+      [2, true],
+      [3, true],
+      [4, true],
+      [5, true],
+      [6, false],
+      [7, false],
+      [8, false],
+      [9, false],
+      [10, true],
+    ]);
+  });
+
+  it("type seul : un export type sans point-virgule ne s'étend pas à l'import de valeur qui le suit", () => {
+    const code = [
+      "export type A = string",
+      'import { loadConfig } from "../../composition/index.js";',
+      "export type { B }",
+      'export { c } from "./c.js";',
+    ].join("\n");
+    expect(readImports(code)).toEqual([
+      { line: 2, kind: "module", specifier: "../../composition/index.js", typeOnly: false },
+      { line: 4, kind: "module", specifier: "./c.js", typeOnly: false },
+    ]);
+  });
+
+  it("type seul : import type … from sans point-virgule puis import de valeur sur la ligne voisine", () => {
+    const code = ['import type { A } from "./a.js"', 'import { v } from "./v.js"'].join("\n");
+    expect(readImports(code)).toEqual([
+      { line: 1, kind: "module", specifier: "./a.js", typeOnly: true },
+      { line: 2, kind: "module", specifier: "./v.js", typeOnly: false },
     ]);
   });
 });
@@ -439,6 +539,98 @@ describe("findDependencyViolations (fichiers synthétiques)", () => {
   });
 });
 
+describe("AR4 : point de passage unique des services (fichiers synthétiques)", () => {
+  it("accepte : import type et export type depuis la composition dans une page, import de valeur dans services.ts, services.js importé par runtime-services.ts", () => {
+    const files = [
+      file(
+        "src/app/page.tsx",
+        'import type { DemoPersonaChoice } from "../composition/index.js";',
+        'export type { AppEnvironment } from "../composition/environment.js";',
+        'import { decide } from "./session/session.js";',
+      ),
+      file(
+        "src/app/session/session.ts",
+        'import type { AppEnvironment } from "../../composition/index.js";',
+        'import { authorizeRole } from "../../use-cases/index.js";',
+      ),
+      file("src/app/services.ts", 'import { createClock, loadConfig } from "../composition/index.js";'),
+      file(
+        "src/app/runtime-services.ts",
+        'import { connection } from "next/server.js";',
+        'import { getServices, type Services } from "./services.js";',
+      ),
+    ];
+    expect(findAppBoundaryViolations(files)).toEqual([]);
+  });
+
+  it("AR4 (a) : refuse services.js importé hors de runtime-services.ts, même en import type, en import() ou depuis un sous-dossier", () => {
+    const files = [
+      file(
+        "src/app/page.tsx",
+        'import { getServices } from "./services.js";',
+        'import type { Services } from "./services.js";',
+        'const s = await import("./services.js");',
+      ),
+      file("src/app/recruteurs/page.tsx", 'import { getServices } from "../services.js";'),
+      file("src/app/session/session.ts", 'export type { Services } from "../services.js";'),
+    ];
+    expect(findAppBoundaryViolations(files)).toEqual([
+      "src/app/page.tsx:1 : services.ts importé hors de runtime-services.ts",
+      "src/app/page.tsx:2 : services.ts importé hors de runtime-services.ts",
+      "src/app/page.tsx:3 : services.ts importé hors de runtime-services.ts",
+      "src/app/recruteurs/page.tsx:1 : services.ts importé hors de runtime-services.ts",
+      "src/app/session/session.ts:1 : services.ts importé hors de runtime-services.ts",
+    ]);
+  });
+
+  it("AR4 (b) : refuse tout import de valeur depuis la composition hors de services.ts, runtime-services.ts compris", () => {
+    const files = [
+      file(
+        "src/app/page.tsx",
+        'import { resolveDemoPersonaToken } from "../composition/index.js";',
+        'import { assertPersonasAdapterAllowed } from "../composition/create-auth-provider.js";',
+        'import { type AppEnvironment } from "../composition/index.js";',
+        'export { loadConfig } from "../composition/load-config.js";',
+        'import "../composition/index.js";',
+        'const c = await import("../composition/index.js");',
+        'import type from "../composition/index.js";',
+      ),
+      file("src/app/runtime-services.ts", 'import { loadConfig } from "../composition/index.js";'),
+    ];
+    expect(findAppBoundaryViolations(files)).toEqual([
+      "src/app/page.tsx:1 : app → composition en valeur (src/composition/index.ts) : seuls import type et export type sont admis hors de services.ts",
+      "src/app/page.tsx:2 : app → composition en valeur (src/composition/create-auth-provider.ts) : seuls import type et export type sont admis hors de services.ts",
+      "src/app/page.tsx:3 : app → composition en valeur (src/composition/index.ts) : seuls import type et export type sont admis hors de services.ts",
+      "src/app/page.tsx:4 : app → composition en valeur (src/composition/load-config.ts) : seuls import type et export type sont admis hors de services.ts",
+      "src/app/page.tsx:5 : app → composition en valeur (src/composition/index.ts) : seuls import type et export type sont admis hors de services.ts",
+      "src/app/page.tsx:6 : app → composition en valeur (src/composition/index.ts) : seuls import type et export type sont admis hors de services.ts",
+      "src/app/page.tsx:7 : app → composition en valeur (src/composition/index.ts) : seuls import type et export type sont admis hors de services.ts",
+      "src/app/runtime-services.ts:1 : app → composition en valeur (src/composition/index.ts) : seuls import type et export type sont admis hors de services.ts",
+    ]);
+  });
+
+  it("AR4 (b) : refuse l'import de valeur placé après un export type sans point-virgule", () => {
+    const files = [
+      file(
+        "src/app/page.tsx",
+        "export type Props = { readonly title: string }",
+        'import { loadConfig } from "../composition/index.js";',
+      ),
+    ];
+    expect(findAppBoundaryViolations(files)).toEqual([
+      "src/app/page.tsx:2 : app → composition en valeur (src/composition/index.ts) : seuls import type et export type sont admis hors de services.ts",
+    ]);
+  });
+
+  it("AR4 : ne concerne que src/app/ ; la composition elle-même et les autres couches ne sont pas visées", () => {
+    const files = [
+      file("src/composition/index.ts", 'export { loadConfig } from "./load-config.js";'),
+      file("src/composition/load-config.ts", 'import { APP_ENVIRONMENTS } from "./environment.js";'),
+    ];
+    expect(findAppBoundaryViolations(files)).toEqual([]);
+  });
+});
+
 describe("Règles de dépendance sur les fichiers de src/", () => {
   const known = new Set(sourceFiles.map((f) => f.path));
   const resolvedImports = (path: string): { line: number; target: string | null }[] => {
@@ -479,5 +671,26 @@ describe("Règles de dépendance sur les fichiers de src/", () => {
 
   it("règle : chaque fichier de src/ est dans une couche et n'importe que ce que sa couche autorise", () => {
     expect(findDependencyViolations(sourceFiles)).toEqual([]);
+  });
+
+  it("AR4 : lit l'import de type seul de session.ts vers la composition (témoin positif)", () => {
+    // Couplé volontairement au contenu de src/app/session/session.ts : après un changement de ses imports, adapter ce test.
+    const source = sourceFiles.find((f) => f.path === "src/app/session/session.ts");
+    const toComposition = readImports(source?.content ?? "")
+      .filter((ref) => resolveRelative("src/app/session/session.ts", ref.specifier, known)?.startsWith("src/composition/"))
+      .map((ref) => ({ line: ref.line, typeOnly: ref.typeOnly }));
+    expect(toComposition).toEqual([{ line: 8, typeOnly: true }]);
+  });
+
+  it("AR4 (a) : runtime-services.ts importe bien services.ts, et lui seul l'importe (témoin positif)", () => {
+    // Couplé volontairement au contenu de src/app/ : après un changement des imports de services.ts, adapter ce test.
+    const importers = sourceFiles
+      .filter((f) => readImports(f.content).some((ref) => resolveRelative(f.path, ref.specifier, known) === SERVICES))
+      .map((f) => f.path);
+    expect(importers).toEqual([RUNTIME_SERVICES]);
+  });
+
+  it("règle AR4 : services.ts n'est importé que par runtime-services.ts ; hors de services.ts, src/app/ n'importe de la composition que des types", () => {
+    expect(findAppBoundaryViolations(sourceFiles)).toEqual([]);
   });
 });
