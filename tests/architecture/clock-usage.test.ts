@@ -3,14 +3,23 @@
 //           process, Temporal dans le code (commentaires, chaînes et texte des gabarits exclus).
 // Règle 2 : dans tout src/ sauf l'adaptateur système de P1, aucun « Date.now( » ni « new Date »
 //           (avec ou sans parenthèses) dans le code.
+// Règle 3 (AR5) : dans tout src/ sauf src/app/runtime-services.ts (seul fichier qui lit
+//           l'environnement du processus), ni le mot entier process dans le code, ni une chaîne
+//           ou un gabarit sans expression valant exactement « process » ou « node:process ».
+//           La seconde partie couvre les imports (import { env } from "node:process", import(),
+//           export … from), globalThis["process"] et Reflect.get(globalThis, "process").
 // Fichiers lus : src/**/*.ts et src/**/*.tsx.
 // Limite assumée : ce test protège contre l'oubli, pas contre un contournement volontaire
-// (globalThis["Date"], alias, accès par chaîne).
+// (globalThis["Date"], alias, accès par chaîne ; pour process : chaîne construite comme
+// "pro" + "cess", nom calculé globalThis[name]).
 // Limite connue : le JSX est lu comme du texte. Une apostrophe dans un texte JSX
 // (<p>l'accès</p>) est prise pour le début d'une chaîne et masque la fin de sa ligne : un
-// Date.now() écrit après elle sur la même ligne n'est pas détecté.
+// Date.now() ou un process écrit après elle sur la même ligne n'est pas détecté. À l'inverse, le
+// mot anglais « process » dans un texte JSX est refusé.
+// Limite connue (refus de trop) : « "process" » écrit à l'intérieur d'une autre chaîne, d'un
+// gabarit ou d'une expression régulière est refusé aussi.
 import { describe, expect, it } from "vitest";
-import { maskNonCode, type SourceFile, sourceFiles } from "./source-files.js";
+import { maskComments, maskNonCode, type SourceFile, sourceFiles } from "./source-files.js";
 
 interface Finding {
   readonly line: number;
@@ -20,8 +29,14 @@ interface Finding {
 const FORBIDDEN_TIME_GLOBAL = /\b(?:Date|performance|process|Temporal)\b/g;
 const DIRECT_CLOCK_CALL = /\bDate\s*\.\s*now\s*\(|\bnew\s+Date\b/g;
 
+// AR5 : le mot process dans le code ; une chaîne (ou un gabarit sans expression) valant exactement
+// « process » ou « node:process », cherchée dans le texte où seuls les commentaires sont masqués.
+const PROCESS_IDENTIFIER = /\bprocess\b/g;
+const PROCESS_STRING = /(["'`])(?:node:)?process\1/g;
+
 const CORE_FOLDERS = ["src/domain/", "src/use-cases/"];
 const SYSTEM_CLOCK = "src/adapters/clock/system-clock.ts";
+const RUNTIME_SERVICES = "src/app/runtime-services.ts";
 
 function find(code: string, pattern: RegExp): Finding[] {
   const masked = maskNonCode(code);
@@ -37,6 +52,18 @@ function findForbiddenTimeGlobals(code: string): Finding[] {
 
 function findDirectClockCalls(code: string): Finding[] {
   return find(code, DIRECT_CLOCK_CALL);
+}
+
+// AR5 : résultats dans l'ordre du texte ; un import par défaut de « process » donne deux résultats
+// (le nom local et le chemin).
+function findProcessUsages(code: string): Finding[] {
+  const withStrings = maskComments(code);
+  const lineOf = (index: number): number => withStrings.slice(0, index).split("\n").length;
+  const found = [
+    ...[...maskNonCode(code).matchAll(PROCESS_IDENTIFIER)].map((m) => ({ index: m.index, match: m[0] })),
+    ...[...withStrings.matchAll(PROCESS_STRING)].map((m) => ({ index: m.index, match: m[0] })),
+  ];
+  return found.sort((a, b) => a.index - b.index).map((f) => ({ line: lineOf(f.index), match: f.match }));
 }
 
 function report(files: readonly SourceFile[], detect: (code: string) => Finding[]): string[] {
@@ -149,6 +176,65 @@ describe("Fichiers .tsx (synthétiques)", () => {
   });
 });
 
+describe("AR5 : détection de process (chaînes écrites en dur)", () => {
+  it.each([
+    ["process.env", "const e = process.env.APP_ENV;", [{ line: 1, match: "process" }]],
+    ["process[\"env\"]", 'const e = process["env"];', [{ line: 1, match: "process" }]],
+    ["déstructuration", "const { env } = process;", [{ line: 1, match: "process" }]],
+    ["globalThis.process", "const e = globalThis.process.env;", [{ line: 1, match: "process" }]],
+    ["alias par propriété", "const g = globalThis;\nconst e = g.process;", [{ line: 2, match: "process" }]],
+    ["globalThis[\"process\"]", 'const e = globalThis["process"];', [{ line: 1, match: '"process"' }]],
+    ["Reflect.get", "const p = Reflect.get(globalThis, 'process');", [{ line: 1, match: "'process'" }]],
+    ["import nommé de node:process", 'import { env } from "node:process";', [{ line: 1, match: '"node:process"' }]],
+    [
+      "import par défaut de process",
+      'import process from "process";',
+      [
+        { line: 1, match: "process" },
+        { line: 1, match: '"process"' },
+      ],
+    ],
+    ["import() de node:process", 'const m = await import("node:process");', [{ line: 1, match: '"node:process"' }]],
+    ["chaîne node:process hors import", "const name = 'node:process';", [{ line: 1, match: "'node:process'" }]],
+    ["gabarit sans expression", "const name = `process`;", [{ line: 1, match: "`process`" }]],
+  ])("refuse %s", (_label, code, expected) => {
+    expect(findProcessUsages(code)).toEqual(expected);
+  });
+
+  it("détecte process dans une expression JSX d'un .tsx", () => {
+    const files = [{ path: "src/app/page.tsx", content: "export default function Page() {\n  return <p>{process.env.APP_ENV}</p>;\n}" }];
+    expect(report(files, findProcessUsages)).toEqual(["src/app/page.tsx:2 : process"]);
+  });
+
+  it("accepte les commentaires, les mots voisins et les chaînes qui ne valent pas exactement process ou node:process", () => {
+    const code = [
+      "// process.env, globalThis[\"process\"]",
+      "/* import { env } from \"node:process\"; */",
+      "const processing = 1;",
+      "const processus = 2;",
+      'const m = "process interrompu";',
+      "const n = 'node:processes';",
+      'const o = "Process";',
+    ].join("\n");
+    expect(findProcessUsages(code)).toEqual([]);
+  });
+
+  it("limites connues : chaîne construite, nom calculé et alias par chaîne ne sont pas détectés", () => {
+    // Fige les limites documentées en tête de fichier ; ce n'est pas un comportement souhaité.
+    const code = [
+      'const a = globalThis["pro" + "cess"];',
+      "const b = globalThis[name];",
+      "const c = `${'pro'}cess`;",
+    ].join("\n");
+    expect(findProcessUsages(code)).toEqual([]);
+  });
+
+  it("limite connue : « \"process\" » écrit à l'intérieur d'une autre chaîne est refusé (refus de trop)", () => {
+    // Fige la limite documentée en tête de fichier : la règle refuse plus que nécessaire.
+    expect(findProcessUsages("const m = 'le mot \"process\"';")).toEqual([{ line: 1, match: '"process"' }]);
+  });
+});
+
 describe("Règles d'horloge sur les fichiers de src/", () => {
   const paths = sourceFiles.map((f) => f.path);
   const coreFiles = sourceFiles.filter((f) => CORE_FOLDERS.some((folder) => f.path.startsWith(folder)));
@@ -173,5 +259,10 @@ describe("Règles d'horloge sur les fichiers de src/", () => {
 
   it("règle 2 : ni Date.now( ni new Date dans src/ hors de l'adaptateur système de P1", () => {
     expect(report(filesExceptSystemClock, findDirectClockCalls)).toEqual([]);
+  });
+
+  it("règle 3 (AR5) : ni process, ni chaîne « process » ou « node:process » dans src/ hors de runtime-services.ts", () => {
+    const filesExceptRuntimeServices = sourceFiles.filter((f) => f.path !== RUNTIME_SERVICES);
+    expect(report(filesExceptRuntimeServices, findProcessUsages)).toEqual([]);
   });
 });
