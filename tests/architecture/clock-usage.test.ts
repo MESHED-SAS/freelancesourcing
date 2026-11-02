@@ -261,6 +261,12 @@ describe("Règles d'horloge sur les fichiers de src/", () => {
     expect(report(filesExceptSystemClock, findDirectClockCalls)).toEqual([]);
   });
 
+  it("détecte le process de runtime-services.ts (témoin positif de la règle 3)", () => {
+    // Couplé volontairement au contenu de runtime-services.ts : après un changement de ce fichier, adapter ce test.
+    const runtimeServices = sourceFiles.find((f) => f.path === RUNTIME_SERVICES);
+    expect(findProcessUsages(runtimeServices?.content ?? "").map((f) => f.match)).toEqual(["process"]);
+  });
+
   it("règle 3 (AR5) : ni process, ni chaîne « process » ou « node:process » dans src/ hors de runtime-services.ts", () => {
     const filesExceptRuntimeServices = sourceFiles.filter((f) => f.path !== RUNTIME_SERVICES);
     expect(report(filesExceptRuntimeServices, findProcessUsages)).toEqual([]);

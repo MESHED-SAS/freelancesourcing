@@ -682,6 +682,14 @@ describe("Règles de dépendance sur les fichiers de src/", () => {
     expect(toComposition).toEqual([{ line: 8, typeOnly: true }]);
   });
 
+  it("AR4 (a) : runtime-services.ts importe bien services.ts, et lui seul l'importe (témoin positif)", () => {
+    // Couplé volontairement au contenu de src/app/ : après un changement des imports de services.ts, adapter ce test.
+    const importers = sourceFiles
+      .filter((f) => readImports(f.content).some((ref) => resolveRelative(f.path, ref.specifier, known) === SERVICES))
+      .map((f) => f.path);
+    expect(importers).toEqual([RUNTIME_SERVICES]);
+  });
+
   it("règle AR4 : services.ts n'est importé que par runtime-services.ts ; hors de services.ts, src/app/ n'importe de la composition que des types", () => {
     expect(findAppBoundaryViolations(sourceFiles)).toEqual([]);
   });

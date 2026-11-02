@@ -53,7 +53,7 @@ Le code est rangé en cinq couches, chacune dans son dossier :
 
 Les règles de dépendance entre couches sont détaillées dans le tableau « Règles de dépendance par couche » ci-dessous. Les cas d'usage manipulent les contrats, jamais un adaptateur précis ; l'interface n'appelle jamais directement le domaine ni un adaptateur, ce qui maintient les contrôles d'accès côté serveur, dans les cas d'usage.
 
-L'assemblage des adaptateurs selon la configuration (la « racine de composition » : choisir le mock ou le réel pour chaque contrat et les fournir aux cas d'usage) se fait en **un point d'entrée unique**, placé dans `src/composition/` (décision de l'US-01). Les fonctions de `src/composition/` reçoivent leur configuration en paramètre et ne lisent pas l'environnement ; les variables d'environnement sont traduites en configuration par `loadConfig(env)` (`src/composition/load-config.ts`, US-02c), qui reçoit l'objet des variables en paramètre. `loadConfig` n'est pas encore appelée par l'application : à ce jour, aucune variable d'environnement n'est lue.
+L'assemblage des adaptateurs selon la configuration (la « racine de composition » : choisir le mock ou le réel pour chaque contrat et les fournir aux cas d'usage) se fait en **un point d'entrée unique**, placé dans `src/composition/` (décision de l'US-01). Les fonctions de `src/composition/` reçoivent leur configuration en paramètre et ne lisent pas l'environnement ; les variables d'environnement sont traduites en configuration par `loadConfig(env)` (`src/composition/load-config.ts`, US-02c), qui reçoit l'objet des variables en paramètre. `loadConfig` est appelée par `getServices` (`src/app/services.ts`), et l'environnement du processus est lu par `src/app/runtime-services.ts` ; aucune page ne l'appelle encore (PR 3).
 
 **Règles de dépendance par couche**, contrôlées par `tests/architecture/layer-dependencies.test.ts` :
 
@@ -67,15 +67,22 @@ L'assemblage des adaptateurs selon la configuration (la « racine de composition
 
 Tout fichier de `src/` appartient à l'une de ces cinq couches. `require(` est refusé dans tout `src/`, ainsi que tout `import()` dont l'argument n'est pas une chaîne littérale.
 
+**Point de passage unique des services (AR4, décision 28)**, contrôlé par le même test :
+
+- `src/app/services.ts` (création et mémorisation des services) n'est importé, même en `import type`, que par `src/app/runtime-services.ts` (et par les tests) ;
+- hors de `src/app/services.ts`, aucun fichier de `src/app/` n'importe de valeur depuis `src/composition/` : seuls `import type` et `export type` sont admis. `import { type X }`, un import sans liaison et `import()` comptent comme des imports de valeur (sous `verbatimModuleSyntax`, `import { type X }` charge encore le module). Une page ne peut donc pas appeler `resolveDemoPersonaToken` avec une configuration fabriquée à la main.
+
 Limites du contrôle :
 
 - lecture par motifs sur le texte, commentaires masqués, et non par arbre syntaxique : le test protège contre l'oubli, pas contre un contournement volontaire ;
 - seuls les fichiers `.ts` et `.tsx` de `src/` sont lus (motif de `tests/architecture/source-files.ts`) : un `.mts`, `.cts` ou `.js` n'est pas lu ; le JSX est lu comme du texte : une apostrophe dans un texte JSX masque la fin de sa ligne (limite connue, test dédié dans `tests/architecture/clock-usage.test.ts`) ;
 - les cycles d'imports ne sont pas contrôlés ;
-- `import type` compte comme un import : une dépendance de type est soumise aux mêmes règles ;
+- `import type` compte comme un import : une dépendance de type est soumise aux mêmes règles (seule la règle AR4 distingue les imports de type seul, `import type` et `export type`) ;
 - les spécificateurs commençant par `#` ou `/` sont traités comme des paquets externes.
 
 **Horloge :** `Date.now(` et `new Date` (avec ou sans parenthèses) sont interdits dans tout `src/`, sauf `src/adapters/clock/system-clock.ts` (adaptateur système de P1). Les identifiants `Date`, `performance`, `process` et `Temporal` sont interdits dans `src/domain/` et `src/use-cases/` (commentaires et chaînes exclus). Contrôle : `tests/architecture/clock-usage.test.ts`.
+
+**Environnement du processus (AR5) :** l'identifiant `process`, et toute chaîne valant exactement `"process"` ou `"node:process"` (imports, `globalThis["process"]`, `Reflect.get(globalThis, "process")` compris), sont interdits dans tout `src/`, sauf `src/app/runtime-services.ts`, seul fichier qui lit l'environnement. Contrôle : `tests/architecture/clock-usage.test.ts`. Limites : une chaîne construite (`"pro" + "cess"`) ou un nom calculé (`globalThis[name]`) ne sont pas détectés ; à l'inverse, `"process"` écrit dans une autre chaîne et le mot anglais « process » dans un texte JSX sont refusés.
 
 **Types du noyau :** `src/domain/` et `src/use-cases/` sont aussi compilés sans types DOM ni Node (`tsconfig.core.json`, lancé par `npm test`) ; limite : `types: []` coupe seulement le chargement automatique des `@types`, c'est le test des couches qui empêche les imports qui les rouvriraient.
 
@@ -90,7 +97,7 @@ Pourquoi `use-cases` et non `application` : dans Next.js, le dossier `app/` dés
 - La garde est une **liste blanche** (`isMockAllowed`) : comparaison exacte, casse comprise, sans normalisation. Toute autre valeur, y compris une valeur incorrecte qui contournerait le typage, est refusée.
 - **L'horloge « system » est autorisée dans tous les environnements.**
 - `createClock`, `createAuthProvider` et `createAuditLog` reçoivent l'environnement en paramètre (champ `environment`, obligatoire, sans valeur par défaut) et lèvent une erreur « Configuration refusée » si un composant simulé est demandé hors `development` et `staging`. Pour « personas » et « in-memory », la garde passe après le contrôle de valeur absente ; pour « simulated », avant le contrôle de `simulatedStart`.
-- **Production par défaut :** `APP_ENV` est traduite par `loadConfig(env)` (`src/composition/load-config.ts`, US-02c). Variable absente : `production` ; toute autre valeur que `development`, `staging` ou `production` (chaîne vide, casse différente ou espaces compris) : erreur « Valeur inconnue pour APP_ENV », sans repli. `ADAPTER_CLOCK`, `ADAPTER_AUTH` et `ADAPTER_AUDIT_LOG` sont transmises sans validation : elle reste dans les fabriques. `loadConfig` n'est pas encore appelée par l'application : à ce jour, aucune variable d'environnement n'est lue.
+- **Production par défaut :** `APP_ENV` est traduite par `loadConfig(env)` (`src/composition/load-config.ts`, US-02c). Variable absente : `production` ; toute autre valeur que `development`, `staging` ou `production` (chaîne vide, casse différente ou espaces compris) : erreur « Valeur inconnue pour APP_ENV », sans repli. `ADAPTER_CLOCK`, `ADAPTER_AUTH` et `ADAPTER_AUDIT_LOG` sont transmises sans validation : elle reste dans les fabriques. `loadConfig` est appelée par `getServices` (`src/app/services.ts`), et l'environnement du processus est lu par `src/app/runtime-services.ts` ; aucune page ne l'appelle encore (PR 3).
 
 Tests : `tests/composition/environment.test.ts`, `tests/composition/create-auth-provider.test.ts`, `tests/composition/create-clock.test.ts`, `tests/composition/create-audit-log.test.ts` et `tests/composition/load-config.test.ts`.
 
